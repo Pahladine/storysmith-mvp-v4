@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { Layout } from '../components/layout/Layout';
+import { Layout } from '../components/Layout/Layout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
