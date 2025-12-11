@@ -1,84 +1,93 @@
-﻿import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
-import { Layout } from '../components/layout/Layout';
-import { FullStoryReader } from '../components/story/FullStoryReader';
-import { Button } from '../components/ui/Button';
-import { useStoryState } from '../lib/state/StoryContext';
-import { ArrowLeft, RotateCcw, Download } from 'lucide-react';
+﻿import React, { useEffect } from "react";
+import { useRouter } from "next/router";
+import { Layout } from "../components/layout/Layout";
+import { useStoryState } from "../lib/state/StoryContext";
+import { Button } from "../components/ui/Button";
+import { BookOpen, Home } from "lucide-react";
 
 export default function PreviewPage() {
   const router = useRouter();
   const { state, resetStory } = useStoryState();
-  const [isReady, setIsReady] = useState(false);
 
+  // If there is no story yet, send them back to /build
   useEffect(() => {
-    // Guard Rails: Redirect if data is missing
-    if (!state.hero.childName) {
-      router.replace('/start');
-      return;
+    if (!state.scenes || state.scenes.length === 0) {
+      router.replace("/build");
     }
-    
-    if (state.scenes.length === 0) {
-      // If we have an outline but no scenes, go to builder
-      if (state.outline) {
-        router.replace('/build');
-      } else {
-        router.replace('/start');
-      }
-      return;
-    }
+  }, [state.scenes, router]);
 
-    setIsReady(true);
-  }, [state, router]);
-
-  const handleStartNew = () => {
-    if (confirm("Are you sure? This will clear your current story.")) {
-      resetStory();
-      router.push('/start');
-    }
-  };
-
-  const handleExport = async () => {
-    // MVP: Just a placeholder alert for now, strictly client-side
-    // Future: Call /api/export-pdf or generate HTML blob
-    alert("Export feature coming soon! For now, try using your browser''s Print > Save as PDF option.");
-  };
-
-  if (!isReady) {
-    return (
-      <Layout>
-        <div className="flex-grow flex items-center justify-center">
-          <p className="text-stone-500">Loading your story...</p>
-        </div>
-      </Layout>
-    );
+  if (!state.scenes || state.scenes.length === 0) {
+    // Brief guard during redirect
+    return null;
   }
 
   return (
-    <Layout title="Your Finished Story">
-      <div className="bg-stone-50 min-h-screen pb-20">
-        
-        {/* Main Reader Component */}
-        <FullStoryReader story={state} />
-
-        {/* Action Bar */}
-        <div className="max-w-3xl mx-auto px-4 mt-8 flex flex-col sm:flex-row gap-4 justify-between items-center print:hidden">
-          
-          <Button variant="ghost" href="/build" className="text-stone-600">
-            <ArrowLeft className="mr-2 h-5 w-5" /> Back to Builder
-          </Button>
-
-          <div className="flex gap-4">
-             <Button variant="outline" onClick={handleExport} title="Print or Save as PDF">
-               <Download className="mr-2 h-5 w-5" /> Save / Print
-             </Button>
-             
-             <Button variant="secondary" onClick={handleStartNew}>
-               <RotateCcw className="mr-2 h-5 w-5" /> Start New Story
-             </Button>
+    <Layout title="Preview Your Story – StorySmith">
+      <div className="max-w-3xl mx-auto px-4 py-10">
+        {/* Header */}
+        <div className="mb-8 text-center">
+          <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-indigo-100 text-indigo-600 mb-4">
+            <BookOpen className="h-8 w-8" />
           </div>
+          <h1 className="text-3xl font-extrabold text-stone-900 mb-2">
+            Your Storybook Is Ready
+          </h1>
+          <p className="text-stone-600 text-lg">
+            Read it together now. Export and printing options will be added in the next version.
+          </p>
         </div>
 
+        {/* Story pages */}
+        <div className="bg-white rounded-3xl shadow-md border border-stone-200 p-6 space-y-8">
+          {state.scenes.map((scene) => (
+            <div
+              key={scene.id}
+              className="border-b border-stone-100 pb-6 last:border-b-0 last:pb-0"
+            >
+              <p className="text-xs uppercase tracking-wide text-stone-400 mb-2">
+                Page {scene.index}
+              </p>
+              <h2 className="text-xl font-bold text-stone-900 mb-3">
+                {scene.title}
+              </h2>
+              <p className="text-lg leading-relaxed text-stone-800 whitespace-pre-line">
+                {scene.text}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-between">
+          <Button
+            variant="outline"
+            onClick={() => router.push("/build")}
+            className="w-full sm:w-auto"
+          >
+            Back to Editing
+          </Button>
+
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto justify-end">
+            <Button
+              disabled
+              className="w-full sm:w-auto opacity-60 cursor-not-allowed"
+            >
+              Export / Print (Coming Soon)
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full sm:w-auto"
+              onClick={() => {
+                resetStory();
+                router.push("/");
+              }}
+            >
+              <Home className="mr-2 h-5 w-5" />
+              Start a New Story
+            </Button>
+          </div>
+        </div>
       </div>
     </Layout>
   );
