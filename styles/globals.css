@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 :root {
   --background: #ffffff;
@@ -23,4 +23,123 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+
+@media print {
+  /* Clean white background for printing */
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: white !important;
+  }
+
+  /* Hide non-story elements */
+  header,
+  footer,
+  .print-hidden {
+    display: none !important;
+  }
+
+  /* Expand the story wrapper to full width on the page */
+  .story-content-wrapper {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0.5in !important;
+  }
+
+  /* Each scene as a "page" */
+  .story-page-section {
+    box-shadow: none !important;
+    border: none !important;
+    border-bottom: 1px solid #ddd;
+    padding: 0.75in 0 !important;
+    margin-bottom: 0 !important;
+    background-color: white !important;
+  }
+
+  .story-page-section h2 {
+    color: #333 !important;
+    font-size: 1.5em !important;
+    border-bottom: none !important;
+    margin-top: 0;
+  }
+
+  .story-page-section p {
+    color: #000 !important;
+    font-size: 12pt !important;
+    line-height: 1.5;
+    margin-top: 1em;
+  }
+
+  /* Start each scene on a new page after the first */
+  .story-page-section:not(:first-child) {
+    page-break-before: always;
+  }
+
+  /* Main title styling at top of the print */
+  .print-header {
+    text-align: center;
+    padding: 0.75in 0.5in;
+    border-bottom: 2px solid #555;
+  }
+}
+/* --- StorySmith screen/print helpers --- */
+
+.print-only {
+  display: none !important;
+}
+
+.screen-only {
+  display: block !important;
+}
+
+@media print {
+  .print-only {
+    display: block !important;
+  }
+
+  .screen-only {
+    display: none !important;
+  }
+
+  .print-hidden,
+  header,
+  footer {
+    display: none !important;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: #ffffff !important;
+  }
+
+  .story-content-wrapper {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .story-page-section {
+    box-shadow: none !important;
+    border: none !important;
+    margin-top: 1in !important;
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+    background-color: #ffffff !important;
+    page-break-before: auto;
+    page-break-after: always;
+  }
+
+  .story-page-section:last-child {
+    page-break-after: auto;
+  }
+
+  .print-header {
+    text-align: center;
+    padding: 1in 0.5in;
+    border-bottom: 2px solid #555;
+    page-break-after: always;
+  }
 }

@@ -1,16 +1,41 @@
-﻿import type { NextApiRequest, NextApiResponse } from 'next';
-import { storyEngine } from '../../lib/storyEngine';
-import { HeroProfile, ReaderProfile, StorySettings, StoryOutline } from '../../lib/models/types';
+﻿import type { NextApiRequest, NextApiResponse } from "next";
+import { generateScenes } from "../../lib/storyEngine";
+import {
+  HeroProfile,
+  ReaderProfile,
+  StorySettings,
+  StoryOutline,
+} from "../../lib/models/types";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).json({ error: true, message: 'Method not allowed' });
+interface ScenesRequestBody {
+  hero: HeroProfile;
+  reader: ReaderProfile;
+  settings: StorySettings;
+  outline: StoryOutline;
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Method Not Allowed" });
+  }
+
+  const body = req.body as Partial<ScenesRequestBody>;
+  const { hero, reader, settings, outline } = body;
+
+  if (!hero || !reader || !settings || !outline) {
+    return res.status(400).json({
+      message: "Missing required parameters (hero, reader, settings, outline).",
+    });
+  }
+
   try {
-    const { hero, reader, settings, outline } = req.body;
-    if (!outline || !hero) return res.status(400).json({ error: true, message: 'Missing data.' });
-    const scenes = await storyEngine.generateScenes(hero, reader, settings, outline);
+    const scenes = await generateScenes(hero, reader, settings, outline);
     res.status(200).json({ scenes });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: true, message: 'Failed to generate scenes.' });
+  } catch (error) {
+    console.error("Scene generation failed:", error);
+    res.status(500).json({ message: "Failed to generate story scenes." });
   }
 }

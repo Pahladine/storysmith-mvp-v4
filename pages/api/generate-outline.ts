@@ -1,16 +1,35 @@
-﻿import type { NextApiRequest, NextApiResponse } from 'next';
-import { storyEngine } from '../../lib/storyEngine';
-import { HeroProfile, ReaderProfile, StorySettings } from '../../lib/models/types';
+﻿import type { NextApiRequest, NextApiResponse } from "next";
+import { generateOutline } from "../../lib/storyEngine";
+import { HeroProfile, ReaderProfile, StorySettings } from "../../lib/models/types";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).json({ error: true, message: 'Method not allowed' });
+interface OutlineRequestBody {
+  hero: HeroProfile;
+  reader: ReaderProfile;
+  settings: StorySettings;
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Method Not Allowed" });
+  }
+
+  const body = req.body as Partial<OutlineRequestBody>;
+  const { hero, reader, settings } = body;
+
+  if (!hero || !reader || !settings) {
+    return res
+      .status(400)
+      .json({ message: "Missing required parameters (hero, reader, settings)." });
+  }
+
   try {
-    const { hero, reader, settings } = req.body;
-    if (!hero || !settings) return res.status(400).json({ error: true, message: 'Missing parameters.' });
-    const outline = await storyEngine.generateOutline(hero, reader, settings);
+    const outline = await generateOutline(hero, reader, settings);
     res.status(200).json({ outline });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: true, message: 'Failed to generate outline.' });
+  } catch (error) {
+    console.error("Outline generation failed:", error);
+    res.status(500).json({ message: "Failed to generate story outline." });
   }
 }

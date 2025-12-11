@@ -1,15 +1,42 @@
-﻿import type { NextApiRequest, NextApiResponse } from 'next';
-import { storyEngine } from '../../lib/storyEngine';
+﻿import type { NextApiRequest, NextApiResponse } from "next";
+import { regenerateScene } from "../../lib/storyEngine";
+import {
+  HeroProfile,
+  ReaderProfile,
+  StorySettings,
+  StoryOutline,
+} from "../../lib/models/types";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).json({ error: true, message: 'Method not allowed' });
+interface RegenerateRequestBody {
+  hero: HeroProfile;
+  reader: ReaderProfile;
+  settings: StorySettings;
+  outline: StoryOutline;
+  sceneId: string;
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Method Not Allowed" });
+  }
+
+  const body = req.body as Partial<RegenerateRequestBody>;
+  const { hero, reader, settings, outline, sceneId } = body;
+
+  if (!hero || !reader || !settings || !outline || !sceneId) {
+    return res
+      .status(400)
+      .json({ message: "Missing required parameters." });
+  }
+
   try {
-    const { hero, reader, settings, outline, sceneId } = req.body;
-    if (!sceneId || !outline) return res.status(400).json({ error: true, message: 'Missing data.' });
-    const scene = await storyEngine.regenerateScene(hero, reader, settings, outline, sceneId);
+    const scene = await regenerateScene(hero, reader, settings, outline, sceneId);
     res.status(200).json({ scene });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: true, message: 'Failed to regenerate scene.' });
+  } catch (error) {
+    console.error("Scene regeneration failed:", error);
+    res.status(500).json({ message: "Failed to regenerate scene." });
   }
 }
