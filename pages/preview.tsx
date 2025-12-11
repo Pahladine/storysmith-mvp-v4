@@ -1,75 +1,106 @@
-﻿import React, { useEffect, useState } from "react";
-import { useRouter } from "next/router";
-import { Layout } from "../components/layout/Layout";
-import { Button } from "../components/ui/Button";
-import { useStoryState } from "../lib/state/StoryContext";
-import { StoryScene } from "../lib/models/types";
-import { ArrowLeft, BookOpen, Printer, ChevronLeft, ChevronRight, Download } from "lucide-react";
-import { buildSessionFromStoryState } from "../lib/session/exportSession";
+﻿import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import { Layout } from '../components/layout/Layout';
+import { Button } from '../components/ui/Button';
+import { useStoryState } from '../lib/state/StoryContext';
+import { StoryScene } from '../lib/models/types';
+import { ArrowLeft, BookOpen, Printer, Sun, Moon, Download, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { buildSessionFromStoryState } from '../lib/session/exportSession';
 
 /**
  * Renders the content of a single StoryScene. Reusable for both screen and print views.
  */
-const StoryPageView: React.FC<{ scene: StoryScene; isScreenView: boolean }> = ({ scene, isScreenView }) => {
-  const chapterLabel = "Chapter " + scene.index;
+interface StoryPageViewProps {
+  scene: StoryScene;
+  isScreenView: boolean;
+  theme?: 'day' | 'night';
+}
 
-  const containerClass = isScreenView
-    ? "story-page-section bg-white rounded-3xl mb-8 transition-shadow duration-300 shadow-xl p-8 md:p-12"
-    : "story-page-section bg-white rounded-3xl mb-8 transition-shadow duration-300 shadow-none border-none p-0";
+const StoryPageView: React.FC<StoryPageViewProps> = ({ scene, isScreenView, theme = 'day' }) => {
+  // Theme-based styling for screen view
+  const isNight = isScreenView && theme === 'night';
+  
+  const cardBg = isNight ? 'bg-slate-800 border border-slate-700' : 'bg-white';
+  const headingColor = isNight ? 'text-slate-100' : 'text-stone-900';
+  const textColor = isNight ? 'text-slate-300' : 'text-stone-800';
+  const promptColor = isNight ? 'text-slate-500 border-slate-700' : 'text-stone-400 border-stone-200';
+  
+  // Layout classes
+  const containerClasses = isScreenView
+    ? `story-page-section shadow-2xl rounded-3xl p-8 md:p-16 mb-8 transition-all duration-500 ease-in-out ${cardBg}`
+    : 'story-page-section shadow-none border-none p-0 mb-8 w-full bg-white'; // Print overrides
 
-  const headingClass = isScreenView
-    ? "font-serif font-bold text-stone-900 text-3xl mb-4"
-    : "font-serif font-bold text-stone-900 text-xl mb-2";
+  const titleClasses = isScreenView
+    ? `text-3xl md:text-4xl mb-6 text-center font-serif font-bold ${headingColor}`
+    : 'text-xl mb-2 font-serif font-bold text-stone-900';
 
-  const textClass = isScreenView
-    ? "text-stone-700 leading-relaxed whitespace-pre-wrap text-xl"
-    : "text-stone-700 leading-relaxed whitespace-pre-wrap text-base";
+  const textClasses = isScreenView
+    ? `text-lg md:text-xl leading-loose font-serif ${textColor}`
+    : 'text-base leading-relaxed text-stone-700';
 
   return (
-    <div className={containerClass}>
-      <h2 className={headingClass}>
-        {chapterLabel}: {scene.title}
+    <div className={containerClasses}>
+      <h2 className={titleClasses}>
+        {isScreenView ? scene.title : `Chapter ${scene.index}: ${scene.title}`}
       </h2>
-
-      <p className={textClass}>
+      
+      {/* Story Text */}
+      <div className={`whitespace-pre-wrap ${textClasses}`}>
         {scene.text}
-      </p>
+      </div>
 
-      {/* Illustration Prompt (hidden on print via global styles) */}
-      <div className="print-hidden mt-6 pt-4 border-t border-dashed border-stone-200 text-sm text-stone-500 italic">
-        <span className="font-semibold">Illustration Prompt:</span> {scene.illustrationPrompt}
+      {/* Illustration Prompt */}
+      <div className={`print-hidden mt-10 pt-6 border-t border-dashed text-sm italic ${promptColor}`}>
+        <span className="font-semibold opacity-75 uppercase tracking-wider text-xs block mb-1">
+          Illustration Prompt
+        </span> 
+        {scene.illustrationPrompt}
       </div>
     </div>
   );
 };
 
+type Theme = 'day' | 'night';
+
 const PreviewPage: React.FC = () => {
   const router = useRouter();
   const { state } = useStoryState();
-
-  const [currentPageIndex, setCurrentPageIndex] = useState(0);
-
+  
   const { hero, scenes } = state;
 
-  // Redirect if prerequisites are missing
+  // Local state for active scene and theme
+  const initialSceneId = scenes.length > 0 ? scenes[0].id : null;
+  const [activeSceneId, setActiveSceneId] = useState<string | null>(initialSceneId);
+  const [theme, setTheme] = useState<Theme>('day');
+
+  // 1. Redirect if prerequisites are missing
   useEffect(() => {
     if (!hero.childName || scenes.length === 0) {
-      router.replace("/build");
+      router.replace('/build');
     }
-  }, [hero.childName, scenes.length, router]);
-
+    // Set active scene ID on initial load if not already set
+    if (!activeSceneId && scenes.length > 0) {
+      setActiveSceneId(scenes[0].id);
+    }
+  }, [hero.childName, scenes.length, router, activeSceneId]);
+  
+  // Derived state
   const totalPages = scenes.length;
-  const isFirstPage = currentPageIndex === 0;
-  const isLastPage = currentPageIndex === totalPages - 1;
-
-  const activeScene = scenes[currentPageIndex];
+  const activeScene = scenes.find(s => s.id === activeSceneId) || scenes[0];
+  const activeIndex = activeScene ? activeScene.index - 1 : 0;
+  const isFirstPage = activeIndex === 0;
+  const isLastPage = activeIndex === totalPages - 1;
 
   const handleNext = () => {
-    if (!isLastPage) setCurrentPageIndex((prev) => prev + 1);
+    if (!isLastPage && activeIndex < totalPages - 1) {
+      setActiveSceneId(scenes[activeIndex + 1].id);
+    }
   };
-
+  
   const handlePrev = () => {
-    if (!isFirstPage) setCurrentPageIndex((prev) => prev - 1);
+    if (!isFirstPage && activeIndex > 0) {
+      setActiveSceneId(scenes[activeIndex - 1].id);
+    }
   };
 
   const handlePrint = () => {
@@ -80,14 +111,14 @@ const PreviewPage: React.FC = () => {
     try {
       const session = buildSessionFromStoryState(state);
       const jsonString = JSON.stringify(session, null, 2);
-      const blob = new Blob([jsonString], { type: "application/json" });
+      const blob = new Blob([jsonString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-
-      const safeId = state.storyId || ("story-" + Date.now().toString());
+      const link = document.createElement('a');
+      
+      const safeId = state.storyId || `story-${Date.now()}`;
       link.href = url;
-      link.download = "storysmith-" + safeId + ".json";
-
+      link.download = `storysmith-${safeId}.json`;
+      
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -97,121 +128,360 @@ const PreviewPage: React.FC = () => {
     }
   };
 
+  const handleDownloadHtml = () => {
+    try {
+      const childName = hero.childName || "Hero";
+      
+      // Build the complete HTML string with premium book styling
+      let htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Complete Story of ${childName}</title>
+    <style>
+        /* Base styles for screen viewing */
+        body {
+            background-color: #f5f1e9;
+            font-family: Georgia, 'Times New Roman', serif;
+            color: #1a1a1a;
+            margin: 0;
+            padding: 40px 20px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .book-root {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .page {
+            background-color: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+            padding: 60px 50px;
+            margin-bottom: 40px;
+            position: relative;
+        }
+        .title-page {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            text-align: center;
+            margin-top: 40px;
+        }
+        h1 {
+            font-size: 3.5rem;
+            margin-bottom: 0.5rem;
+            color: #2c2c2c;
+            line-height: 1.1;
+        }
+        .subtitle {
+            font-size: 1.4rem;
+            color: #666;
+            font-style: italic;
+            margin-top: 0;
+        }
+        .chapter h2 {
+            font-size: 2.2rem;
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            color: #444;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 0.5rem;
+        }
+        .story-text {
+            font-size: 1.25rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            margin-bottom: 3rem;
+        }
+        .illustration-prompt {
+            margin-top: 24px;
+            padding: 24px;
+            border-radius: 12px;
+            border: 2px dashed #e5e0d8;
+            background-color: #faf7f2;
+            font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+            font-size: 0.95rem;
+            color: #555;
+        }
+        .prompt-label {
+            display: block;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.1em;
+            color: #888;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Print-specific overrides */
+        @media print {
+            body {
+                background-color: white;
+                padding: 0;
+                margin: 0;
+            }
+            .book-root {
+                max-width: 100%;
+                width: 100%;
+                margin: 0;
+            }
+            .page {
+                box-shadow: none;
+                border-radius: 0;
+                margin: 0;
+                padding: 0;
+                border: none;
+                width: 100%;
+                margin-bottom: 0;
+            }
+            .title-page {
+                min-height: 90vh;
+                page-break-after: always;
+                margin-top: 0;
+            }
+            .chapter {
+                page-break-after: always;
+                margin-top: 2cm;
+            }
+            .chapter:last-child {
+                page-break-after: auto;
+            }
+            .illustration-prompt {
+                border-color: #ccc;
+                break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="book-root">
+        <section class="title-page page">
+            <h1>The Complete Story of ${childName}</h1>
+            <p class="subtitle">Generated with StorySmith</p>
+        </section>
+`;
+
+      scenes.forEach(scene => {
+        htmlContent += `
+        <section class="page chapter">
+            <h2>Chapter ${scene.index}: ${scene.title}</h2>
+            <p class="story-text">${scene.text}</p>
+            <div class="illustration-prompt">
+                <span class="prompt-label">Illustration Prompt</span>
+                ${scene.illustrationPrompt}
+            </div>
+        </section>`;
+      });
+
+      htmlContent += `
+    </div>
+</body>
+</html>`;
+
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      
+      const safeId = state.storyId || `story-${Date.now()}`;
+      link.href = url;
+      link.download = `storysmith-${safeId}.html`;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Failed to generate HTML storybook:", e);
+    }
+  };
+  
+  // Theme styling for the main wrapper (screen-only)
+  // Day: Warm off-white/beige. Night: Dark slate.
+  const themeWrapperClasses = theme === 'night' 
+    ? 'bg-slate-950 text-slate-300' 
+    : 'bg-[#f8f5f2] text-stone-800';
+
+  // If we are mid-redirect or data is still loading/missing, return a minimal view.
   if (!hero.childName || scenes.length === 0) {
     return (
       <Layout title="Story Missing">
         <div className="p-10 text-center">
           <p className="text-xl text-stone-600">
-            Loading story, or the story hasn&apos;t been fully generated yet. Redirecting you to the builder...
+            Loading story, or the story hasn't been fully generated yet. Redirecting you to the builder...
           </p>
         </div>
       </Layout>
     );
   }
-
+  
   const childName = hero.childName || "Your Hero";
 
   return (
-    <Layout title={"Read " + childName + "'s Adventure"}>
-      <div className="story-content-wrapper max-w-5xl mx-auto px-4 py-8 md:py-12">
+    <Layout title={`Read ${childName}'s Adventure`}>
+      <div className={`min-h-screen transition-colors duration-500 flex flex-col items-center ${themeWrapperClasses}`}>
+        
         {/* --- 1. SCREEN-ONLY READER VIEW --- */}
-        <div className="screen-only">
-          {/* Header / Title */}
-          <div className="text-center mb-8">
-            <BookOpen className="w-12 h-12 text-indigo-500 mx-auto mb-2" />
-            <h1 className="text-4xl font-extrabold text-stone-900 mb-2">
-              The Adventure of {childName}
-            </h1>
-            <p className="text-lg text-stone-600">
-              Snuggle up and read the story together!
-            </p>
-          </div>
+        <div className="screen-only w-full max-w-6xl px-4 py-6 md:py-10 flex flex-col items-center">
+            
+            {/* HEADER */}
+            <header className="w-full flex justify-between items-center mb-8 max-w-3xl mx-auto">
+                {/* Theme Toggle */}
+                <div className={`flex items-center p-1 rounded-full border ${
+                  theme === 'night' ? 'bg-slate-900 border-slate-700' : 'bg-white border-stone-200 shadow-sm'
+                }`}>
+                    <button 
+                        onClick={() => setTheme('day')} 
+                        className={`p-2 rounded-full transition-all ${
+                          theme === 'day' ? 'bg-indigo-100 text-indigo-700' : 'text-stone-400 hover:text-stone-600'
+                        }`}
+                        aria-label="Toggle Day Theme"
+                    >
+                        <Sun className="h-4 w-4" />
+                    </button>
+                    <button 
+                        onClick={() => setTheme('night')} 
+                        className={`p-2 rounded-full transition-all ${
+                          theme === 'night' ? 'bg-indigo-900 text-indigo-300' : 'text-stone-400 hover:text-stone-600'
+                        }`}
+                        aria-label="Toggle Night Theme"
+                    >
+                        <Moon className="h-4 w-4" />
+                    </button>
+                </div>
+                
+                {/* Title Block */}
+                <div className="text-center">
+                    <h1 className="text-lg md:text-xl font-bold font-serif tracking-tight">
+                        {childName}’s Adventure
+                    </h1>
+                    <p className="text-xs font-medium opacity-60 uppercase tracking-widest mt-1">
+                        Page {activeIndex + 1} of {totalPages}
+                    </p>
+                </div>
+                
+                {/* Spacer for visual balance (width matches toggle ~72px) */}
+                <div className="w-[72px]"></div> 
+            </header>
 
-          {/* Main Reader Page */}
-          <div className="flex justify-center items-stretch min-h-[50vh]">
-            <div className="w-full max-w-3xl">
-              {activeScene && <StoryPageView scene={activeScene} isScreenView={true} />}
-            </div>
-          </div>
-
-          {/* Navigation and Controls */}
-          <div className="mt-8 pt-6 border-t border-stone-200 flex flex-col items-center gap-6">
-            {/* Prev / Next row */}
-            <div className="flex items-center gap-4">
-              <Button
-                onClick={handlePrev}
-                disabled={isFirstPage}
-                variant="secondary"
-                size="sm"
-              >
-                <ChevronLeft className="h-5 w-5 mr-1" /> Previous Page
-              </Button>
-              <div className="text-sm font-semibold text-stone-600">
-                Page {currentPageIndex + 1} of {totalPages}
-              </div>
-              <Button
-                onClick={handleNext}
-                disabled={isLastPage}
-                variant="secondary"
-                size="sm"
-              >
-                Next Page <ChevronRight className="h-5 w-5 ml-1" />
-              </Button>
-            </div>
-
-            {/* Action buttons row */}
-            <div className="flex flex-col sm:flex-row justify-center gap-4 w-full max-w-2xl">
-              <Button
-                variant="outline"
-                onClick={() => router.push("/build")}
-                className="flex-1"
-                size="sm"
-              >
-                <ArrowLeft className="mr-2 h-5 w-5" /> Back to Builder
-              </Button>
-
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={handleDownloadJson}
-                className="flex-1"
-              >
-                <Download className="mr-2 h-5 w-5" /> Download Story File (JSON)
-              </Button>
-
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={handlePrint}
-                className="flex-1"
-              >
-                <Printer className="mr-2 h-5 w-5" /> Print or Save as PDF
-              </Button>
+            {/* NAV PILLS (Scene selectors) */}
+            <div className="flex flex-wrap justify-center gap-2 mb-8 max-w-2xl">
+                {scenes.map((scene) => (
+                    <button
+                        key={scene.id}
+                        onClick={() => setActiveSceneId(scene.id)}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-200
+                            ${scene.id === activeSceneId 
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 scale-110' 
+                                : (theme === 'night'
+                                    ? 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                                    : 'bg-white text-stone-400 hover:bg-white hover:shadow-md hover:text-indigo-500')
+                            }`}
+                    >
+                        {scene.index}
+                    </button>
+                ))}
             </div>
 
-            <p className="text-xs text-stone-500 text-center max-w-xl">
-              Printing will open your browser&apos;s Print window. Choose{" "}
-              <span className="font-semibold">“Save as PDF”</span> if you want a copy of the book to
-              share or print later.
-            </p>
-          </div>
+            {/* MAIN READER CARD */}
+            <main className="w-full max-w-3xl mb-10 relative z-10">
+                {activeScene && (
+                    <StoryPageView 
+                        scene={activeScene} 
+                        isScreenView={true} 
+                        theme={theme} 
+                    />
+                )}
+            </main>
+            
+            {/* FOOTER ACTIONS */}
+            <footer className="w-full max-w-4xl flex flex-col gap-6 items-center">
+                
+                {/* Primary Navigation (Prev/Next) */}
+                <div className="flex items-center gap-4 w-full max-w-md">
+                    <Button 
+                        onClick={handlePrev}
+                        disabled={isFirstPage}
+                        variant="secondary"
+                        className="flex-1"
+                    >
+                        <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                    </Button>
+                    <Button 
+                        onClick={handleNext}
+                        disabled={isLastPage}
+                        variant="primary"
+                        className="flex-1 shadow-lg shadow-indigo-500/20"
+                    >
+                        Next <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                </div>
+                
+                <div className="w-full h-px bg-current opacity-10 my-2"></div>
+
+                {/* Secondary Tools Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
+                    <Button variant="outline" size="sm" onClick={() => router.push('/build')}>
+                        <ArrowLeft className="h-4 w-4 mr-2" /> Edit Story
+                    </Button>
+                    
+                    <Button variant="outline" size="sm" onClick={() => router.push('/start')}>
+                        <RefreshCw className="h-4 w-4 mr-2" /> New Story
+                    </Button>
+
+                    <Button variant="outline" size="sm" onClick={handleDownloadJson}>
+                        <Download className="h-4 w-4 mr-2" /> Save JSON
+                    </Button>
+                    
+                    <Button variant="secondary" size="sm" onClick={handleDownloadHtml}>
+                        <BookOpen className="h-4 w-4 mr-2" /> Save HTML
+                    </Button>
+                </div>
+
+                {/* Print Call To Action */}
+                <div className="w-full max-w-md mt-2">
+                    <Button 
+                        variant="primary" 
+                        size="lg" 
+                        onClick={handlePrint}
+                        className="w-full shadow-xl"
+                    >
+                        <Printer className="mr-2 h-5 w-5" /> Print or Save as PDF
+                    </Button>
+                    <p className="text-center text-xs opacity-50 mt-2">
+                        Creates a clean, printable PDF version of the story.
+                    </p>
+                </div>
+            </footer>
         </div>
 
-        {/* --- 2. PRINT-ONLY FULL STORY --- */}
+        {/* --- 2. PRINT-ONLY FULL STORY (Preserved for PDF generation) --- */}
         <div className="print-only">
-          <div className="text-center pt-8 pb-12 print-header">
-            <h1 className="text-4xl font-serif font-extrabold text-stone-900 mb-4">
-              The Complete Story of {childName}
-            </h1>
-            <p className="text-sm text-stone-600">Generated by StorySmith</p>
-          </div>
-
-          <div className="space-y-12 story-pages-container">
-            {scenes.map((scene) => (
-              <StoryPageView key={scene.id} scene={scene} isScreenView={false} />
-            ))}
-          </div>
+             {/* Print Header/Title Page */}
+             <div className="text-center pt-8 pb-12 print-header print-page-break">
+                <h1 className="text-4xl font-serif font-extrabold text-stone-900 mb-4">
+                    The Complete Story of {childName}
+                </h1>
+                <p className="text-sm text-stone-600">Generated by StorySmith</p>
+            </div>
+            
+            <div className="space-y-12 story-pages-container">
+              {scenes.map((scene, index) => (
+                <div 
+                    key={scene.id}
+                    // Apply page break after every scene except the last one
+                    className={index < scenes.length - 1 ? "print-page-break" : ""}
+                >
+                    {/* Render with isScreenView=false to get print styling */}
+                    <StoryPageView scene={scene} isScreenView={false} />
+                </div>
+              ))}
+            </div>
         </div>
+        
       </div>
     </Layout>
   );
