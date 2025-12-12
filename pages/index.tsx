@@ -1,11 +1,11 @@
-import { Layout } from '../components/Layout/Layout';
+﻿import { Layout } from '../components/layout/Layout';
 import { HeroSection } from '../components/marketing/HeroSection';
 import { ReassuranceRow } from '../components/marketing/ReassuranceRow';
 import { HowItWorksStrip } from '../components/marketing/HowItWorksStrip';
 
 export default function LandingPage() {
   return (
-    <Layout title="StorySmith – Create Stories Together">
+    <Layout title="StorySmith â€“ Create Stories Together">
       {/* 1. The Welcome Gate */}
       <HeroSection />
 
@@ -17,3 +17,5 @@ export default function LandingPage() {
     </Layout>
   );
 }
+
+

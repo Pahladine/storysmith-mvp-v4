@@ -1,0 +1,296 @@
+# STORYSMITH BUILD MANIFEST – V4.1
+
+This document defines the non-negotiable rules, constraints, and expectations for any coding assistant modifying the StorySmith codebase.
+
+The assistant MUST treat this manifest as the single source of truth for behavior, UX, and technical constraints. All changes must comply with this manifest unless explicitly instructed otherwise in the current task.
+
+==================================================
+1. PROJECT IDENTITY & PURPOSE
+==================================================
+
+Project name: StorySmith
+
+High-level purpose:
+- StorySmith is a guided storybook builder for non-technical users, especially grandparents and kids.
+- It helps them answer friendly questions, then generates a short, beautifully written, illustrated story they can read on the web and export (PDF / HTML) as a keepsake.
+
+Core user promise:
+- “Zero-stress, joyful, theme-park-like experience that turns a real child + relationship into a custom story, without requiring technical skills or creative confidence.”
+
+
+==================================================
+2. TARGET USERS & TONE
+==================================================
+
+Primary users:
+- Non-technical adults (grandparents, parents, caregivers).
+- Young children experiencing the story with them.
+
+Tone & voice:
+- Warm, encouraging, and playful.
+- No sarcasm, no technical jargon, no scary or dark content.
+- Simple, clear language appropriate for ~4–8 year-olds hearing the story.
+
+UX principles:
+- “Grandparent-safe”: avoid complex controls, cryptic labels, and surprise behavior.
+- Focus heavily on multiple-choice inputs where possible.
+- Typing should be optional and minimal (names, short phrases, optional custom idea text).
+
+
+==================================================
+3. EXPERIENCE PRINCIPLES (THEME PARK FEEL)
+==================================================
+
+The assistant MUST preserve and enhance:
+
+1. Theme-park metaphor:
+   - The app should feel like entering a friendly attraction, not a spreadsheet.
+   - Screen copy should feel like a “guide” walking the user through a ride:
+     - Short headings
+     - Reassuring subtext
+     - Clear “Next” actions
+
+2. Multiple-choice first:
+   - For new UX work, prefer:
+     - Selects
+     - Radio-style choices
+     - Simple stepped wizards
+   - Textareas are used only when:
+     - The user is providing a custom story idea
+     - Or adding optional notes
+
+3. No friction:
+   - No pop-up alerts, confirms, or blocking dialogs.
+   - All feedback should be inline or via the existing Notification / toast UI.
+
+
+==================================================
+4. TECHNICAL STACK & ARCHITECTURE CONSTRAINTS
+==================================================
+
+Framework:
+- Next.js (Pages Router), React, TypeScript, Tailwind CSS.
+
+Routing:
+- Core MVP routes:
+  - `/start`   – wizard to collect hero, reader, and settings
+  - `/build`   – outline generation, scene generation, scene editing
+  - `/preview` – final reading experience & export options
+- Supporting routes (if present):
+  - `/example` – static Example story view
+  - `/about`   – simple informational page
+- DO NOT add, remove, or rename routes unless explicitly instructed in the task.
+
+State:
+- Story state is managed via `lib/state/StoryContext.tsx` and `StoryState` / related types in `lib/models/types.ts`.
+- Session export uses `buildSessionFromStoryState` in `lib/session/exportSession.ts`.
+- Any modifications must keep StoryState internally consistent and compatible with session export unless the task explicitly says otherwise.
+
+UI:
+- Components live in:
+  - `components/layout/*`
+  - `components/ui/*`
+  - `components/story/*`
+- Use existing design system:
+  - `Button`, `Input`, `Select`, `Notification`, etc.
+- Do NOT add new third-party component libraries.
+- Icons are from the existing icon set; reuse those as needed.
+
+
+==================================================
+5. STATE & MODE BEHAVIOR (GUIDED vs CUSTOM)
+==================================================
+
+StorySettings:
+- Contains at least:
+  - `mode: 'guided' | 'custom'`
+  - `userIdea?: string`
+  - Other guided controls such as:
+    - `adventureType`
+    - `length`
+    - `setting`
+    - `tone` (if present)
+
+Mode behavior:
+- GUIDED mode:
+  - Story is generated from the structured settings (vibe, setting, length, etc.).
+  - The assistant MUST NOT break existing GUIDED behavior unless explicitly instructed.
+
+- CUSTOM mode:
+  - `userIdea` becomes the primary narrative seed.
+  - Outline, scenes, and any regeneration must visibly respect the user’s idea.
+  - The assistant must keep:
+    - Child’s name
+    - Relationship
+    - Safe, gentle tone
+
+Scenes & outline:
+- The outline and scenes MUST be:
+  - Kid-appropriate
+  - Coherent across pages
+  - Centered on the named child and relationship
+- No plagiarism:
+  - Do NOT reference specific copyrighted stories, characters, or plots.
+  - All text must be original.
+
+
+==================================================
+6. CONTENT SAFETY & QUALITY RULES
+==================================================
+
+Writing quality:
+- Stories must:
+  - Have a clear beginning, middle, and cozy ending.
+  - Use short, readable sentences.
+  - Avoid overcomplicated vocabulary.
+  - Keep emotional tone gentle, supportive, and wonder-driven.
+
+Safety:
+- No violence, horror, or adult themes.
+- No references to real-world tragedies, politics, or controversial topics.
+- No brand names or existing fictional universes.
+
+Plagiarism & originality:
+- Do NOT imitate specific authors or books.
+- Do NOT copy recognizable passages, plots, or characters.
+- Always produce clearly original wording.
+
+Illustration prompts:
+- Must describe:
+  - The hero
+  - The adult reader (when relevant)
+  - The setting
+- Style:
+  - Consistent across scenes within a single story.
+  - Gentle, child-friendly visual style (soft, warm, whimsical).
+- No copyrighted character references or artist name-dropping.
+
+
+==================================================
+7. PAGE-LEVEL RESPONSIBILITIES
+==================================================
+
+/start:
+- Acts as a multi-step wizard:
+  - Step 1: hero profile
+  - Step 2: reader profile
+  - Step 3: story settings + mode (guided/custom)
+- Heavy bias toward multiple choice for settings.
+- Custom mode shows a textarea for the user’s own idea.
+- “Next” / “Back” buttons must be obvious and safe for non-technical users.
+
+/build:
+- Three phases:
+  1) Generate outline
+  2) Review outline & optionally regenerate
+  3) Generate scenes & edit individual scenes
+- Uses Notification for errors, not alerts.
+- `SceneList` and `StoryPreviewPanel`:
+  - Allow selecting a scene.
+  - Allow regenerating a scene (using the same mode logic as initial generation).
+- No new navigation paradigms (no wizards inside wizards, no modals unless explicitly requested).
+
+/preview:
+- Single-scene reader on screen:
+  - Theme toggle (day/night) is allowed.
+  - Scene navigation (next/previous or tabs) is allowed.
+- Print / export (MVP, user-facing):
+  - “Print or Save as PDF” must produce a clean, multi-page layout:
+    - Clean, legible print output with title page + one page per scene, and no app chrome.
+    - May be visually simpler than the HTML book; it is not required to match all premium HTML styling.
+- JSON export:
+  - JSON export is primarily a developer/internal feature.
+  - The underlying session builder (`buildSessionFromStoryState`) MUST remain stable.
+  - A visible “Download JSON” button is OPTIONAL and should NOT be present in the grandparent-facing MVP unless explicitly requested for an advanced mode.
+- HTML export:
+  - Premium HTML book (primary keepsake):
+    - Rich, book-like layout with cover page, clear chapter/scene headings, and comfortable typography.
+    - May include additional visual flourishes (scene cards, dividers, illustration-prompt boxes) that do not appear in PDF.
+
+
+Example & About pages:
+- Read-only.
+- Must not modify StoryState.
+- Can be improved visually, but must remain simple, safe, and non-interactive beyond navigation links.
+
+
+==================================================
+8. Experience Pillars (Non-Negotiable)
+==================================================
+
+1) Theme-park cast members
+   - Each Act (Hero Forge, Scene Weaver, Bind & Preserve) is represented by a named persona.
+   - UI copy should feel like “a friendly guide talking to you”, not generic app copy.
+
+2) Multiple-choice first
+   - Minimize free-text fields; prefer checkboxes, dropdowns, and simple toggles.
+   - Any open text boxes must be *optional* seasoning, not required heavy lifting.
+
+3) Output hierarchy
+   - HTML storybook is the hero output: most beautiful, interactive-leaning, and visually premium.
+   - PDF is the “utility” export: reliable, print-safe, and good enough, but never more advanced than the HTML storybook.
+
+4) Safety + originality
+   - Story engine must avoid obvious plagiarism and explain-in-docs how it maintains originality.
+   - Illustration prompts must be tailored to keep character visual identity consistent across scenes.
+
+
+
+
+==================================================
+9. PATCH & OUTPUT RULES
+==================================================
+
+General modification rules:
+- DO NOT:
+  - Introduce new dependencies without explicit instruction.
+  - Migrate to a different router, app structure, or framework.
+  - Rename or move files unless the task explicitly requires it.
+- Prefer minimal, surgical changes that:
+  - Implement the requested behavior
+  - Keep the rest of the app stable
+
+When asked to modify code:
+- Only touch the files explicitly mentioned in the task.
+- Preserve existing comments and patterns where possible.
+- Keep TypeScript strictness intact; do not bypass types with `any` unless absolutely unavoidable and called out.
+
+When asked to output patches as PowerShell:
+- For each file you modify:
+  - Emit one `Set-Content` script that fully overwrites that file.
+  - Example pattern:
+
+    ```powershell
+    $path = "relative/path/to/file.tsx"
+    $content = @'
+    // file content here
+    '@
+    Set-Content -Path $path -Value $content -Encoding UTF8
+    ```
+
+- If multiple files are changed:
+  - Emit multiple PowerShell blocks, one per file.
+- Do not emit commentary outside code fences if the task forbids it.
+- Do not emit any other files or side effects beyond what the task explicitly requests.
+
+
+==================================================
+10. BEHAVIOR WHEN CONFLICTS ARISE
+==================================================
+
+If the current task appears to conflict with this manifest:
+
+1. Prefer safety and user experience:
+   - Do not introduce alerts, popups, or confusing flows.
+2. Prefer stability:
+   - Do not break routes, StoryState, or export formats.
+3. If forced to choose:
+   - Obey explicit task instructions BUT:
+     - Keep the change as small as possible.
+     - Preserve existing patterns.
+     - Add comments where clarification is needed.
+
+If in doubt, bias toward:
+- Keeping the wizard flow simple,
+- Keeping the story gentle and original,
+- Keeping the code incremental and maintainable.

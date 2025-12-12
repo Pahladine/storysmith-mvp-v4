@@ -1,257 +1,310 @@
-﻿import React, { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/router';
-import { Layout } from '../components/layout/Layout';
-import { Button } from '../components/ui/Button';
-import { useStoryState } from '../lib/state/StoryContext';
-import { SceneCard } from '../components/story/SceneCard';
-import { SceneList } from '../components/story/SceneList';
-import { StoryPreviewPanel } from '../components/story/StoryPreviewPanel';
-import { Sparkles, ArrowRight, RefreshCw, BookOpen } from 'lucide-react';
-import { Notification } from '../components/ui/Notification'; // Import the new component
+﻿import React, { useState, useEffect } from "react";
+import { useRouter } from "next/router";
+import { Layout } from "../components/layout/Layout";
+import { Button } from "../components/ui/Button";
+import { useStoryState } from "../lib/state/StoryContext";
+import {
+  Sparkles,
+  PenTool,
+  ArrowRight,
+  Loader2,
+  RefreshCw,
+  BookOpen,
+} from "lucide-react";
 
-type NotificationType = 'success' | 'error' | 'info';
+function titleCase(input: string) {
+  const s = (input || "").trim();
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
-interface NotificationState {
-  message: string;
-  type: NotificationType;
-  isVisible: boolean;
+async function readJsonSafe(res: Response) {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function buildErrMessage(data: any, res: Response) {
+  const msg =
+    (data?.message ? String(data.message) : "") ||
+    (data?.error ? String(data.error) : "") ||
+    `Request failed (${res.status})`;
+  return msg + (data?.reqId ? ` [ref: ${data.reqId}]` : "");
 }
 
 export default function BuildPage() {
   const router = useRouter();
-  const { state: storyState, setOutline, setScenes, updateScene } = useStoryState();
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
-  const [notification, setNotification] = useState<NotificationState>({
-    message: '',
-    type: 'info',
-    isVisible: false,
-  });
+  const { state, setOutline, setScenes, updateScene } = useStoryState();
+  const { hero, reader, scenes, outline, settings } = state;
 
-  // Utility to display a temporary notification
-  const showNotification = useCallback((message: string, type: NotificationType = 'info') => {
-    setNotification({ message, type, isVisible: true });
-    // Auto-dismiss after 5 seconds
-    setTimeout(() => {
-      setNotification((prev) => ({ ...prev, isVisible: false }));
-    }, 5000);
-  }, []);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Redirect if prerequisites are missing
-    if (!storyState.hero.childName) router.replace('/start');
-  }, [storyState.hero.childName, router]);
+    if (!hero.childName) router.replace("/start");
+  }, [hero.childName, router]);
 
-  const hasScenes = storyState.scenes.length > 0;
-  const hasOutline = !!storyState.outline;
+  const generateOutline = async () => {
+    setIsGenerating(true);
+    setError(null);
 
-  const handleGenerateOutline = async () => {
-    setIsLoading(true);
     try {
-      const res = await fetch('/api/generate-outline', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          hero: storyState.hero,
-          reader: storyState.reader,
-          settings: storyState.settings,
-        }),
+      const payload = { hero, reader, settings };
+
+      const res = await fetch("/api/generate-outline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (data.outline) {
-        setOutline(data.outline);
-        showNotification(
-          'Outline created successfully! Review the chapters below.',
-          'success'
-        );
-      } else {
-        showNotification(
-          "The engine couldn't create an outline. Please try again.",
-          'error'
-        );
-      }
-    } catch (e) {
-      console.error('Outline generation failed:', e);
-      showNotification(
-        'Something went wrong generating the outline. Check your network.',
-        'error'
-      );
+
+      const data = await readJsonSafe(res);
+
+      if (!res.ok) throw new Error(buildErrMessage(data, res));
+
+      setOutline(data?.outline ?? data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setIsLoading(false);
+      setIsGenerating(false);
     }
   };
 
-  const handleGenerateScenes = async () => {
-    setIsLoading(true);
+  const generateScenes = async () => {
+    setIsGenerating(true);
+    setError(null);
+
     try {
-      const res = await fetch('/api/generate-scenes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          hero: storyState.hero,
-          reader: storyState.reader,
-          settings: storyState.settings,
-          outline: storyState.outline,
-        }),
+      if (!outline) throw new Error("No outline found. Draft the outline first.");
+
+      // IMPORTANT: match API contract (hero, reader, settings, outline)
+      const payload = { hero, reader, settings, outline };
+
+      const res = await fetch("/api/generate-scenes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (data.scenes && data.scenes.length > 0) {
-        setScenes(data.scenes);
-        setSelectedSceneId(data.scenes[0].id);
-        showNotification(
-          'The full story has been written! You can now review and edit.',
-          'success'
-        );
-      } else {
-        showNotification(
-          "We couldn't write the story from the outline. Please try regenerating the scenes.",
-          'error'
-        );
+
+      const data = await readJsonSafe(res);
+
+      if (!res.ok) throw new Error(buildErrMessage(data, res));
+
+      if (!data?.scenes || !Array.isArray(data.scenes)) {
+        throw new Error("Server returned an invalid scenes payload.");
       }
-    } catch (e) {
-      console.error('Scene generation failed:', e);
-      showNotification(
-        'Something went wrong writing the story. The engine might be busy.',
-        'error'
-      );
+
+      setScenes(data.scenes);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setIsLoading(false);
+      setIsGenerating(false);
     }
   };
 
-  const handleRegenerateScene = async (sceneId: string) => {
-    setIsLoading(true);
+  const regenerateScene = async (sceneId: string) => {
+    setIsGenerating(true);
+    setError(null);
+
     try {
-      const res = await fetch('/api/regenerate-scene', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          hero: storyState.hero,
-          reader: storyState.reader,
-          settings: storyState.settings,
-          outline: storyState.outline,
-          sceneId,
-        }),
+      if (!outline) throw new Error("No outline found. Draft the outline first.");
+
+      const isStrict = settings.mode === "custom";
+
+      // IMPORTANT: match API contract (hero, reader, settings, outline, sceneId)
+      // Keep instructions as an extra field if your endpoint supports it; otherwise it will be ignored.
+      const payload = {
+        hero,
+        reader,
+        settings,
+        outline,
+        sceneId,
+        instructions: isStrict
+          ? "Follow the original plan exactly."
+          : "Make it more magical.",
+      };
+
+      const res = await fetch("/api/regenerate-scene", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (data.scene) {
-        updateScene(data.scene);
-        showNotification('Scene successfully regenerated!', 'success');
-      } else {
-        showNotification('The engine was unable to rewrite that scene.', 'error');
-      }
-    } catch (e) {
-      console.error('Scene regeneration failed:', e);
-      showNotification(
-        'Could not regenerate scene. A technical glitch occurred.',
-        'error'
-      );
+
+      const data = await readJsonSafe(res);
+
+      if (!res.ok) throw new Error(buildErrMessage(data, res));
+
+      if (data?.scene) updateScene(data.scene);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setIsLoading(false);
+      setIsGenerating(false);
     }
   };
 
-  const activeScene =
-    storyState.scenes.find((s) => s.id === selectedSceneId) || storyState.scenes[0];
+  const childName = titleCase(hero.childName || "your hero");
+
+  // Prefer dedication name as the “read together with” companion label (what you expected)
+  const companion =
+    (hero.readerName || "").trim() ||
+    (reader.childName || "").trim() ||
+    "you";
+
+  const sceneCountLabel = scenes.length > 0 ? `${scenes.length}-chapter` : "magical";
 
   return (
-    <Layout title="Build Your Story">
-      {/* ----------------- STAGE 1: GENERATE OUTLINE ----------------- */}
-      {!hasOutline && (
-        <div className="flex-grow flex flex-col items-center justify-center p-6 text-center max-w-2xl mx-auto">
-          <div className="h-24 w-24 bg-indigo-100 rounded-full flex items-center justify-center mb-8 text-indigo-600">
-            <Sparkles size={48} />
+    <Layout title="Weave Your Story - StorySmith">
+      <div className="flex-grow flex flex-col items-center p-4 sm:p-6 max-w-5xl mx-auto w-full">
+        <div className="w-full mb-8 md:mb-10 bg-gradient-to-r from-orange-50 via-amber-50 to-indigo-50 border border-orange-100 rounded-3xl shadow-sm px-6 py-6 md:px-8 md:py-7">
+          <div className="text-xs font-semibold tracking-wide uppercase text-orange-600 mb-2">
+            Act II · Weave the Adventure
           </div>
-          <h1 className="text-4xl font-extrabold text-stone-900 mb-4">
-            Ready to shape the adventure?
+          <h1 className="text-2xl md:text-3xl font-extrabold text-stone-900 mb-3">
+            Welcome to the StorySmith Scene Weaver
           </h1>
-          <p className="text-xl text-stone-600 mb-10">
-            We have all your answers. Now, click the button below to plan out the chapters of
-            your book.
+          <p className="text-sm md:text-base text-stone-700 leading-relaxed max-w-3xl">
+            I am the Scene Weaver, your quiet stagehand behind the curtain. Together we’ll turn
+            your hero’s details into cozy chapters, one scene at a time. We’ll shape a{" "}
+            {sceneCountLabel} adventure for <span className="font-semibold">{childName}</span>, read
+            together with <span className="font-semibold">{titleCase(companion)}</span>.
           </p>
-          <Button
-            size="lg"
-            onClick={handleGenerateOutline}
-            disabled={isLoading}
-            className="w-full sm:w-auto shadow-xl"
-          >
-            {isLoading ? 'Thinking...' : 'Create My Story Outline'}{' '}
-            <Sparkles className="ml-2" />
-          </Button>
         </div>
-      )}
 
-      {/* ----------------- STAGE 2: REVIEW OUTLINE ----------------- */}
-      {hasOutline && !hasScenes && (
-        <div className="max-w-4xl mx-auto px-4 py-12">
-          <div className="text-center mb-10">
-            <h1 className="text-3xl font-extrabold text-stone-900">Does this sound fun?</h1>
-            <p className="text-lg text-stone-600 mt-2">
-              Here is the plan for your book. If you like it, we'll write the full story!
+        {error && (
+          <div className="w-full mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 flex items-center">
+            <span className="mr-2">⚠️</span> {error}
+          </div>
+        )}
+
+        {isGenerating && (
+          <div className="w-full py-20 flex flex-col items-center justify-center text-stone-500 animate-in fade-in">
+            <Loader2 className="h-10 w-10 animate-spin text-orange-500 mb-4" />
+            <p className="text-lg font-medium">The Scene Weaver is working magic...</p>
+            <p className="text-sm opacity-75">This might take a moment.</p>
+          </div>
+        )}
+
+        {!isGenerating && !outline && (
+          <div className="w-full text-center py-10 bg-white rounded-3xl border border-stone-200 shadow-sm px-6">
+            <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Sparkles className="h-8 w-8 text-orange-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-stone-900 mb-4">First, let's sketch the plan.</h2>
+            <p className="text-stone-600 mb-8 max-w-lg mx-auto">
+              We'll outline the key moments of the story based on your settings.
             </p>
-          </div>
-          <div className="grid gap-6 mb-12">
-            {storyState.outline?.scenes.map((scene) => (
-              <SceneCard key={scene.id} scene={scene} />
-            ))}
-          </div>
-          <div className="flex flex-col sm:flex-row justify-center gap-4 border-t border-stone-200 pt-8">
-            <Button
-              variant="outline"
-              onClick={handleGenerateOutline}
-              disabled={isLoading}
-            >
-              <RefreshCw className="mr-2 h-5 w-5" /> Try a Different Plan
-            </Button>
-            <Button
-              size="lg"
-              onClick={handleGenerateScenes}
-              disabled={isLoading}
-            >
-              {isLoading ? 'Writing Story...' : 'Yes, Write the Story!'}{' '}
-              <ArrowRight className="ml-2 h-5 w-5" />
+            <Button size="lg" onClick={generateOutline}>
+              Draft the Outline <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ----------------- STAGE 3: EDIT SCENES ----------------- */}
-      {hasOutline && hasScenes && (
-        <div className="flex-grow flex flex-col md:flex-row max-w-6xl mx-auto w-full p-4 gap-6">
-          <div className="w-full md:w-1/3 flex-shrink-0">
-            <div className="bg-white p-4 rounded-2xl border border-stone-200 sticky top-24">
-              <h3 className="font-bold text-stone-900 mb-4 px-2">Your Scenes</h3>
-              <SceneList
-                scenes={storyState.scenes}
-                selectedId={activeScene?.id || null}
-                onSelect={setSelectedSceneId}
-              />
-              <div className="mt-6 pt-6 border-t border-stone-100">
-                <Button href="/preview" className="w-full" variant="secondary">
-                  Finish & Read <BookOpen className="ml-2 h-5 w-5" />
+        {!isGenerating && outline && scenes.length === 0 && (
+          <div className="w-full animate-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden">
+              <div className="bg-indigo-50 p-6 border-b border-indigo-100 flex justify-between items-center flex-wrap gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-indigo-900">The Story Blueprint</h2>
+                  <p className="text-indigo-700 text-sm">Here is the plan for our adventure.</p>
+                </div>
+                <Button onClick={generateScenes} className="shadow-lg shadow-indigo-200">
+                  Looks Good! Weave Scenes <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {outline.scenes.map((s: any) => (
+                  <div key={s.id} className="flex gap-4 p-4 bg-stone-50 rounded-xl border border-stone-100">
+                    <div className="flex-shrink-0 w-8 h-8 bg-white rounded-full border border-stone-200 flex items-center justify-center font-bold text-stone-400 text-xs">
+                      {s.index}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-stone-800 text-lg mb-1">{s.title}</h3>
+                      <p className="text-stone-600 text-sm leading-relaxed">{s.summary}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-4 bg-stone-50 border-t border-stone-100 text-center">
+                <p className="text-xs text-stone-400">
+                  Not quite right?{" "}
+                  <button onClick={generateOutline} className="underline hover:text-stone-600">
+                    Re-roll the outline
+                  </button>
+                </p>
               </div>
             </div>
           </div>
-          <div className="w-full md:w-2/3">
-            {activeScene && (
-              <StoryPreviewPanel
-                scene={activeScene}
-                isRegenerating={isLoading}
-                onRegenerate={handleRegenerateScene}
-              />
-            )}
-          </div>
-        </div>
-      )}
+        )}
 
-      {/* Custom Notification Box */}
-      <Notification
-        message={notification.message}
-        type={notification.type}
-        isVisible={notification.isVisible}
-        onDismiss={() => setNotification((prev) => ({ ...prev, isVisible: false }))}
-      />
+        {!isGenerating && scenes.length > 0 && (
+          <div className="w-full animate-in slide-in-from-bottom-4 duration-500">
+            <div className="mt-4 md:mt-6 bg-stone-50/70 border border-stone-200 rounded-3xl px-4 md:px-6 py-6 md:py-8">
+              <div className="mb-6 md:mb-8 text-center md:text-left">
+                <h2 className="text-xl font-bold text-stone-800">Your Chapters So Far</h2>
+                <p className="text-stone-500 text-sm mt-1">
+                  Each card below is a chapter of tonight’s story. You can tweak the words or ask the Scene Weaver to gently rewrite them.
+                </p>
+              </div>
+
+              <div className="space-y-8">
+                {scenes.map((scene: any) => (
+                  <div
+                    key={scene.id}
+                    className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-stone-100 transition-shadow hover:shadow-md"
+                  >
+                    <div className="text-xs font-semibold tracking-wide uppercase text-orange-500 mb-1">
+                      Scene {scene.index}
+                    </div>
+
+                    <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-4">
+                      <h3 className="text-lg md:text-xl font-bold text-stone-900">{scene.title}</h3>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => regenerateScene(scene.id)}
+                          title="Ask Scene Weaver to try again"
+                        >
+                          <RefreshCw className="h-4 w-4 text-stone-400 hover:text-stone-600" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <textarea
+                      className="w-full h-auto min-h-[160px] p-4 rounded-xl border border-stone-200 text-lg leading-relaxed text-stone-700 focus:ring-2 focus:ring-orange-200 focus:border-orange-400 focus:outline-none resize-none bg-stone-50/30"
+                      value={scene.text}
+                      onChange={(e) => updateScene({ ...scene, text: e.target.value })}
+                    />
+
+                    <div className="flex justify-between items-start mt-3">
+                      <p className="text-xs text-stone-500 italic max-w-md">
+                        The Scene Weaver will keep your hero and setting the same, but smooth the words.
+                      </p>
+                      <div className="text-xs font-semibold text-stone-300 uppercase tracking-widest flex items-center gap-1">
+                        <PenTool className="h-3 w-3" /> Editable
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-10 flex flex-col items-center gap-4 pt-8 border-t border-stone-200">
+                <Button
+                  size="lg"
+                  className="w-full sm:w-auto px-12 shadow-xl shadow-orange-200 text-lg"
+                  onClick={() => router.push("/preview")}
+                >
+                  <BookOpen className="mr-2 h-6 w-6" /> Read the Book
+                </Button>
+                <p className="text-stone-500 text-sm">Ready to see the final storybook?</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </Layout>
   );
 }

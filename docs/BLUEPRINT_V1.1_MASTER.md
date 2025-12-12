@@ -122,6 +122,26 @@ StorySmith v4 keeps the original prompt-pack’s “theme park” DNA:
 
 ---
 
+## 1.5 Acts & Personas
+
+Act I – Forge the Hero
+- Persona: Sculptor of Souls (warm, theatrical guide who helps define the hero and reader).
+- Primary route: /start.
+- Interaction pattern: very light typing, mostly selections; conversational copy.
+
+Act II – Weave the Scenes
+- Persona: Scene Weaver / Architect of Arcs.
+- Primary route: /build.
+- Interaction pattern: question → generate outline → user chooses, tweaks with simple controls.
+
+Act III – Bind & Preserve
+- Persona: Keeper of Stories / Binder.
+- Primary route: /preview.
+- Interaction pattern: quiet, cozy reading experience + export decisions (PDF vs HTML).
+
+
+---
+
 ## 2. Core User Journeys
 
 ### 2.1 Primary Journey – “Make our first storybook”
@@ -159,6 +179,7 @@ StorySmith v4 keeps the original prompt-pack’s “theme park” DNA:
    Allow:
    - Title change  
    - Download as PDF / print-friendly HTML  
+   - For v4, PDF is a simple print-friendly view; the HTML storybook is the “premium” output and may include richer layout and theming than the PDF.
 
 **Constraints**
 
@@ -360,6 +381,8 @@ Additional UX mandates for v4:
 - All helper text should sound like a friendly host guiding the guest through an attraction, not an app explaining its settings.  
 - Any “power user” or advanced options must be hidden, simplified, or deferred to a future version.
 
+Interaction Shape: Prefer multiple-choice, toggles, and friendly presets first. Text inputs should be optional, clearly labeled, and never required to progress unless absolutely necessary (e.g., name field).
+
 ---
 
 ### 6.2 Wizard UX Rules
@@ -447,7 +470,7 @@ Any time an AI proposes a change that touches:
 Instead:
 
 1. **Log the proposal**  
-   - In `CHANGELOG_STORYSMITH.md` under “Proposed changes”.
+   - In `CHANGELOG_STORYSMITH_v1.1.md` under “Proposed changes”.
 
 2. **Evaluate against this blueprint**  
    - Does it contradict:

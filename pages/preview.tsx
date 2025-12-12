@@ -20,22 +20,28 @@ const StoryPageView: React.FC<StoryPageViewProps> = ({ scene, isScreenView, them
   // Theme-based styling for screen view
   const isNight = isScreenView && theme === 'night';
   
-  const cardBg = isNight ? 'bg-slate-800 border border-slate-700' : 'bg-white';
-  const headingColor = isNight ? 'text-slate-100' : 'text-stone-900';
+  // Refined card styling for a "book page" feel
+  const cardBg = isNight 
+    ? 'bg-slate-900 border border-slate-800' // Night: Dark card, subtle border
+    : 'bg-white border border-stone-100';    // Day: White card, subtle border
+    
+  const headingColor = isNight ? 'text-slate-200' : 'text-stone-900';
   const textColor = isNight ? 'text-slate-300' : 'text-stone-800';
-  const promptColor = isNight ? 'text-slate-500 border-slate-700' : 'text-stone-400 border-stone-200';
-  
+  const promptBg = isNight ? 'bg-slate-800' : 'bg-stone-50';
+  const promptBorder = isNight ? 'border-slate-700' : 'border-stone-200';
+  const promptText = isNight ? 'text-slate-500' : 'text-stone-500';
+
   // Layout classes
   const containerClasses = isScreenView
-    ? `story-page-section shadow-2xl rounded-3xl p-8 md:p-16 mb-8 transition-all duration-500 ease-in-out ${cardBg}`
+    ? `story-page-section w-full mb-8 transition-all duration-500 ease-in-out ${cardBg} shadow-lg rounded-xl md:rounded-2xl p-6 md:p-10`
     : 'story-page-section shadow-none border-none p-0 mb-8 w-full bg-white'; // Print overrides
 
   const titleClasses = isScreenView
-    ? `text-3xl md:text-4xl mb-6 text-center font-serif font-bold ${headingColor}`
+    ? `text-2xl md:text-3xl mb-4 text-center font-serif font-bold ${headingColor}`
     : 'text-xl mb-2 font-serif font-bold text-stone-900';
 
   const textClasses = isScreenView
-    ? `text-lg md:text-xl leading-loose font-serif ${textColor}`
+    ? `text-lg md:text-xl leading-relaxed md:leading-loose font-serif ${textColor}`
     : 'text-base leading-relaxed text-stone-700';
 
   return (
@@ -49,12 +55,12 @@ const StoryPageView: React.FC<StoryPageViewProps> = ({ scene, isScreenView, them
         {scene.text}
       </div>
 
-      {/* Illustration Prompt */}
-      <div className={`print-hidden mt-10 pt-6 border-t border-dashed text-sm italic ${promptColor}`}>
-        <span className="font-semibold opacity-75 uppercase tracking-wider text-xs block mb-1">
+      {/* Illustration Prompt (screen only, visually distinct but low priority) */}
+      <div className={`print-hidden mt-8 pt-4 border-t border-dashed ${promptBorder} text-sm ${promptText} rounded-lg ${promptBg} p-4`}>
+        <span className="font-bold uppercase tracking-wider text-xs block mb-1 opacity-70">
           Illustration Prompt
         </span> 
-        {scene.illustrationPrompt}
+        <span className="italic opacity-90">{scene.illustrationPrompt}</span>
       </div>
     </div>
   );
@@ -300,10 +306,10 @@ const PreviewPage: React.FC = () => {
   };
   
   // Theme styling for the main wrapper (screen-only)
-  // Day: Warm off-white/beige. Night: Dark slate.
+  // Day: Warm, paper-like background. Night: Deep, cozy slate.
   const themeWrapperClasses = theme === 'night' 
     ? 'bg-slate-950 text-slate-300' 
-    : 'bg-[#f8f5f2] text-stone-800';
+    : 'bg-[#f5f1e9] text-stone-800';
 
   // If we are mid-redirect or data is still loading/missing, return a minimal view.
   if (!hero.childName || scenes.length === 0) {
@@ -327,44 +333,46 @@ const PreviewPage: React.FC = () => {
         {/* --- 1. SCREEN-ONLY READER VIEW --- */}
         <div className="screen-only w-full max-w-6xl px-4 py-6 md:py-10 flex flex-col items-center">
             
-            {/* HEADER */}
+            {/* HEADER: Now Reading Bar */}
             <header className="w-full flex justify-between items-center mb-8 max-w-3xl mx-auto">
-                {/* Theme Toggle */}
+                {/* Theme Toggle (Left) */}
                 <div className={`flex items-center p-1 rounded-full border ${
                   theme === 'night' ? 'bg-slate-900 border-slate-700' : 'bg-white border-stone-200 shadow-sm'
                 }`}>
                     <button 
                         onClick={() => setTheme('day')} 
                         className={`p-2 rounded-full transition-all ${
-                          theme === 'day' ? 'bg-indigo-100 text-indigo-700' : 'text-stone-400 hover:text-stone-600'
+                          theme === 'day' ? 'bg-orange-100 text-orange-700 shadow-sm' : 'text-stone-400 hover:text-stone-600'
                         }`}
                         aria-label="Toggle Day Theme"
+                        title="Day Mode"
                     >
                         <Sun className="h-4 w-4" />
                     </button>
                     <button 
                         onClick={() => setTheme('night')} 
                         className={`p-2 rounded-full transition-all ${
-                          theme === 'night' ? 'bg-indigo-900 text-indigo-300' : 'text-stone-400 hover:text-stone-600'
+                          theme === 'night' ? 'bg-indigo-900 text-indigo-300 shadow-sm' : 'text-stone-400 hover:text-stone-600'
                         }`}
                         aria-label="Toggle Night Theme"
+                        title="Night Mode"
                     >
                         <Moon className="h-4 w-4" />
                     </button>
                 </div>
                 
-                {/* Title Block */}
-                <div className="text-center">
-                    <h1 className="text-lg md:text-xl font-bold font-serif tracking-tight">
-                        {childName}’s Adventure
+                {/* Center Title Block */}
+                <div className="text-center px-4">
+                    <h1 className="text-lg md:text-xl font-bold font-serif tracking-tight mb-1">
+                        Now reading: {childName}’s Adventure
                     </h1>
-                    <p className="text-xs font-medium opacity-60 uppercase tracking-widest mt-1">
-                        Page {activeIndex + 1} of {totalPages}
+                    <p className={`text-xs md:text-sm font-medium ${theme === 'night' ? 'text-slate-500' : 'text-stone-500'}`}>
+                        Tap the circles below to jump chapters, or use arrows to turn pages.
                     </p>
                 </div>
                 
-                {/* Spacer for visual balance (width matches toggle ~72px) */}
-                <div className="w-[72px]"></div> 
+                {/* Visual Spacer (Right) - Matches toggle width approx ~80px */}
+                <div className="w-[80px]"></div> 
             </header>
 
             {/* NAV PILLS (Scene selectors) */}
@@ -375,11 +383,12 @@ const PreviewPage: React.FC = () => {
                         onClick={() => setActiveSceneId(scene.id)}
                         className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-200
                             ${scene.id === activeSceneId 
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 scale-110' 
+                                ? 'bg-orange-600 text-white shadow-lg shadow-orange-500/30 scale-110' 
                                 : (theme === 'night'
-                                    ? 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                                    : 'bg-white text-stone-400 hover:bg-white hover:shadow-md hover:text-indigo-500')
+                                    ? 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'
+                                    : 'bg-white text-stone-400 hover:bg-white hover:shadow-md hover:text-orange-500 border border-stone-100')
                             }`}
+                        title={`Go to Chapter ${scene.index}`}
                     >
                         {scene.index}
                     </button>
@@ -397,16 +406,17 @@ const PreviewPage: React.FC = () => {
                 )}
             </main>
             
-            {/* FOOTER ACTIONS */}
-            <footer className="w-full max-w-4xl flex flex-col gap-6 items-center">
+            {/* FOOTER ACTIONS - Compact Layout */}
+            <footer className="w-full max-w-4xl flex flex-col gap-8 items-center pb-12">
                 
-                {/* Primary Navigation (Prev/Next) */}
+                {/* 1. Primary Navigation (Prev/Next) */}
                 <div className="flex items-center gap-4 w-full max-w-md">
                     <Button 
                         onClick={handlePrev}
                         disabled={isFirstPage}
                         variant="secondary"
                         className="flex-1"
+                        size="sm"
                     >
                         <ChevronLeft className="h-4 w-4 mr-1" /> Previous
                     </Button>
@@ -414,46 +424,44 @@ const PreviewPage: React.FC = () => {
                         onClick={handleNext}
                         disabled={isLastPage}
                         variant="primary"
-                        className="flex-1 shadow-lg shadow-indigo-500/20"
+                        className="flex-1 shadow-md shadow-orange-500/20"
+                        size="sm"
                     >
                         Next <ChevronRight className="h-4 w-4 ml-1" />
                     </Button>
                 </div>
                 
-                <div className="w-full h-px bg-current opacity-10 my-2"></div>
+                <div className={`w-full h-px ${theme === 'night' ? 'bg-slate-800' : 'bg-stone-200'} max-w-2xl`}></div>
 
-                {/* Secondary Tools Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
-                    <Button variant="outline" size="sm" onClick={() => router.push('/build')}>
+                {/* 2. Secondary Tools Grid - Responsive Wrap */}
+                <div className="flex flex-wrap justify-center gap-3 w-full max-w-3xl">
+                    <Button variant="outline" size="sm" onClick={() => router.push('/build')} className="min-w-[140px]">
                         <ArrowLeft className="h-4 w-4 mr-2" /> Edit Story
                     </Button>
                     
-                    <Button variant="outline" size="sm" onClick={() => router.push('/start')}>
+                    <Button variant="outline" size="sm" onClick={() => router.push('/start')} className="min-w-[140px]">
                         <RefreshCw className="h-4 w-4 mr-2" /> New Story
                     </Button>
 
-                    <Button variant="outline" size="sm" onClick={handleDownloadJson}>
+                    <Button variant="outline" size="sm" onClick={handleDownloadJson} className="min-w-[140px]">
                         <Download className="h-4 w-4 mr-2" /> Save JSON
                     </Button>
                     
-                    <Button variant="secondary" size="sm" onClick={handleDownloadHtml}>
+                    <Button variant="secondary" size="sm" onClick={handleDownloadHtml} className="min-w-[140px]">
                         <BookOpen className="h-4 w-4 mr-2" /> Save HTML
                     </Button>
                 </div>
 
-                {/* Print Call To Action */}
-                <div className="w-full max-w-md mt-2">
+                {/* 3. Main Export Call To Action */}
+                <div className="w-full max-w-sm mt-2">
                     <Button 
                         variant="primary" 
                         size="lg" 
                         onClick={handlePrint}
-                        className="w-full shadow-xl"
+                        className="w-full shadow-lg"
                     >
                         <Printer className="mr-2 h-5 w-5" /> Print or Save as PDF
                     </Button>
-                    <p className="text-center text-xs opacity-50 mt-2">
-                        Creates a clean, printable PDF version of the story.
-                    </p>
                 </div>
             </footer>
         </div>

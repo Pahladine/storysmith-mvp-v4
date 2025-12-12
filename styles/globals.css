@@ -1,145 +1,223 @@
 ﻿@import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ==========================================================================
+   StorySmith Day-1 Design Tokens + Global Primitives
+   - Warm, legible, "storybook" friendly foundation
+   - No route-specific theming yet (Act personas come later)
+   ========================================================================== */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+    /* Core palette (warm creams + gentle accent + desaturated teal) */
+    --ss-bg: 255 252 246;          /* warm cream */
+    --ss-surface: 255 255 255;     /* white card */
+    --ss-ink: 41 37 36;            /* warm charcoal */
+    --ss-muted: 120 113 108;       /* muted brown/gray */
+    --ss-border: 231 229 228;      /* soft border */
+    --ss-accent: 234 88 12;        /* soft orange */
+    --ss-accent-2: 20 184 166;     /* teal */
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-
-@media print {
-  /* Clean white background for printing */
-  body {
-    margin: 0;
-    padding: 0;
-    background-color: white !important;
+    /* Radii + shadow */
+    --ss-radius: 16px;
+    --ss-radius-sm: 12px;
+    --ss-shadow: 0 10px 28px rgba(0,0,0,0.08);
   }
 
-  /* Hide non-story elements */
-  header,
-  footer,
-  .print-hidden {
-    display: none !important;
-  }
-
-  /* Expand the story wrapper to full width on the page */
-  .story-content-wrapper {
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 0.5in !important;
-  }
-
-  /* Each scene as a "page" */
-  .story-page-section {
-    box-shadow: none !important;
-    border: none !important;
-    border-bottom: 1px solid #ddd;
-    padding: 0.75in 0 !important;
-    margin-bottom: 0 !important;
-    background-color: white !important;
-  }
-
-  .story-page-section h2 {
-    color: #333 !important;
-    font-size: 1.5em !important;
-    border-bottom: none !important;
-    margin-top: 0;
-  }
-
-  .story-page-section p {
-    color: #000 !important;
-    font-size: 12pt !important;
-    line-height: 1.5;
-    margin-top: 1em;
-  }
-
-  /* Start each scene on a new page after the first */
-  .story-page-section:not(:first-child) {
-    page-break-before: always;
-  }
-
-  /* Main title styling at top of the print */
-  .print-header {
-    text-align: center;
-    padding: 0.75in 0.5in;
-    border-bottom: 2px solid #555;
-  }
-}
-/* --- StorySmith screen/print helpers --- */
-
-.print-only {
-  display: none !important;
-}
-
-.screen-only {
-  display: block !important;
-}
-
-@media print {
-  .print-only {
-    display: block !important;
-  }
-
-  .screen-only {
-    display: none !important;
-  }
-
-  .print-hidden,
-  header,
-  footer {
-    display: none !important;
+  html, body {
+    height: 100%;
   }
 
   body {
     margin: 0;
-    padding: 0;
-    background-color: #ffffff !important;
+    color: rgb(var(--ss-ink));
+    background: rgb(var(--ss-bg));
+    /* UI text: clean sans; story text will opt into serif via utility class */
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+      "Apple Color Emoji", "Segoe UI Emoji";
+    line-height: 1.45;
+    text-rendering: optimizeLegibility;
   }
 
-  .story-content-wrapper {
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
+  a {
+    color: inherit;
+    text-decoration: none;
   }
 
-  .story-page-section {
-    box-shadow: none !important;
-    border: none !important;
-    margin-top: 1in !important;
-    margin-bottom: 0 !important;
-    padding: 0 !important;
-    background-color: #ffffff !important;
-    page-break-before: auto;
-    page-break-after: always;
+  * {
+    box-sizing: border-box;
   }
 
-  .story-page-section:last-child {
-    page-break-after: auto;
-  }
-
-  .print-header {
-    text-align: center;
-    padding: 1in 0.5in;
-    border-bottom: 2px solid #555;
-    page-break-after: always;
+  /* Accessible focus without being loud */
+  :focus-visible {
+    outline: 3px solid rgba(234, 88, 12, 0.35); /* accent */
+    outline-offset: 2px;
+    border-radius: 10px;
   }
 }
+
+@layer components {
+  /* ---------- Page frame primitives ---------- */
+
+  /* Full-page background + centered content region */
+  .ss-page {
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 600px at 20% 0%, rgba(234, 88, 12, 0.08), transparent 60%),
+      radial-gradient(900px 500px at 80% 20%, rgba(20, 184, 166, 0.10), transparent 55%),
+      rgb(var(--ss-bg));
+  }
+
+  .ss-container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 24px 16px 56px;
+  }
+
+  @media (min-width: 640px) {
+    .ss-container {
+      padding: 32px 24px 72px;
+    }
+  }
+
+  .ss-card {
+    background: rgb(var(--ss-surface));
+    border: 1px solid rgb(var(--ss-border));
+    border-radius: var(--ss-radius);
+    box-shadow: var(--ss-shadow);
+  }
+
+  .ss-card-inner {
+    padding: 18px 16px;
+  }
+
+  @media (min-width: 640px) {
+    .ss-card-inner {
+      padding: 22px 20px;
+    }
+  }
+
+  .ss-divider {
+    height: 1px;
+    background: rgb(var(--ss-border));
+    width: 100%;
+  }
+
+  /* ---------- Typography primitives ---------- */
+
+  .ss-h1 {
+    font-size: 28px;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    font-weight: 750;
+    margin: 0;
+  }
+
+  @media (min-width: 640px) {
+    .ss-h1 { font-size: 34px; }
+  }
+
+  .ss-subtitle {
+    margin-top: 10px;
+    color: rgb(var(--ss-muted));
+    font-size: 15px;
+    line-height: 1.4;
+  }
+
+  /* Use for story text blocks (storybook feel) */
+  .ss-story {
+    font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    font-size: 18px;
+    line-height: 1.65;
+  }
+
+  /* ---------- Helper blocks ---------- */
+
+  .ss-helper {
+    margin-top: 14px;
+    padding: 12px 12px;
+    border-radius: var(--ss-radius-sm);
+    border: 1px dashed rgba(120, 113, 108, 0.35);
+    background: rgba(255, 255, 255, 0.55);
+    color: rgb(var(--ss-muted));
+    font-size: 14px;
+  }
+
+  .ss-helper strong {
+    color: rgb(var(--ss-ink));
+    font-weight: 650;
+  }
+
+  /* ---------- Button + loading primitives (for existing Button to adopt later) ---------- */
+
+  .ss-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-radius: 14px;
+    padding: 10px 14px;
+    font-weight: 650;
+    font-size: 15px;
+    border: 1px solid transparent;
+    transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, opacity 120ms ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .ss-btn:active {
+    transform: translateY(1px);
+  }
+
+  .ss-btn-primary {
+    background: rgb(var(--ss-accent));
+    color: white;
+    box-shadow: 0 10px 20px rgba(234, 88, 12, 0.18);
+  }
+
+  .ss-btn-primary:hover {
+    box-shadow: 0 14px 26px rgba(234, 88, 12, 0.22);
+  }
+
+  .ss-btn-secondary {
+    background: rgba(255, 255, 255, 0.75);
+    color: rgb(var(--ss-ink));
+    border-color: rgb(var(--ss-border));
+  }
+
+  .ss-btn-secondary:hover {
+    box-shadow: 0 10px 22px rgba(0,0,0,0.08);
+  }
+
+  .ss-btn[aria-disabled="true"],
+  .ss-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .ss-spinner {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    border: 2px solid rgba(255,255,255,0.45);
+    border-top-color: rgba(255,255,255,0.95);
+    animation: ss-spin 750ms linear infinite;
+  }
+
+  .ss-spinner--dark {
+    border: 2px solid rgba(41, 37, 36, 0.20);
+    border-top-color: rgba(41, 37, 36, 0.65);
+  }
+
+  @keyframes ss-spin {
+    to { transform: rotate(360deg); }
+  }
+}
+
+@layer utilities {
+  .ss-text-muted { color: rgb(var(--ss-muted)); }
+  .ss-border { border-color: rgb(var(--ss-border)); }
+}
+
+

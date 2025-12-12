@@ -39,3 +39,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local secrets
+.env.local
+
+# Patch backups
+*.bak_*
+
+# Quarantine / old casing folders
+components/Layout__OLD*/
+components/__CASE_QUARANTINE__*/
+
+# Build output
+.next/

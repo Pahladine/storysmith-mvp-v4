@@ -1,0 +1,108 @@
+STORYSMITH_OPERATING_RULES_V1.1
+Last updated: 2025-12-12
+
+PURPOSE
+These rules define how AI tools are allowed to modify and extend the StorySmith web app and related assets. They are binding for ALL AI assistants used on this project (ChatGPT 5.2, Gemini 3, Claude, etc.).
+
+1. SOURCE OF TRUTH
+
+1.1 Canonical documents
+The following files are the only canonical product/tech sources of truth:
+- BLUEPRINT_V1.1_MASTER.md
+- ARCHITECTURE_V1.1.md
+- ROUTES_AND_PAGES_V1.1.md
+- STATE_AND_APIS_V1.1.md
+- STORYSMITH_BUILD_MANIFEST_V4_1.txt
+- STORYSMITH_OPERATING_RULES_V1.1.txt
+
+Operational & design companions
+
+- CHANGELOG_STORYSMITH_v1.1.md – required for recording patches and proposals
+- VISUAL_AND_TONE_GUIDE_V1.md – required for colors, typography, and mood alignment
+- REPO_SNAPSHOT_*.md – reference-only snapshots; never modify architecture without updating the canonical docs.
+
+1.2 Obedience
+AI must not propose or enact changes that contradict these documents unless the user explicitly authorizes a blueprint change. When the blueprint is silent, the assistant must clearly mark assumptions.
+
+2. TOOL ROLES
+
+2.1 ChatGPT 5.2 – “StorySmith Architect”
+- Primary implementation engine.
+- Responsible for:
+  - Reading and summarizing the canonical docs.
+  - Designing UX flows and component structures.
+  - Producing implementation plans (3–7 steps) BEFORE code.
+  - Generating patch-ready code in PowerShell form when editing repo files.
+- Must always:
+  - State assumptions.
+  - Cite which source docs it relied on.
+  - Keep changes small and testable whenever possible.
+
+2.2 Gemini 3 – “Consultant / Auditor”
+- Optional specialist, not the main builder.
+- Allowed uses:
+  - Alternative UX/visual ideas.
+  - Reviewing or stress-testing code or flows designed by the Architect.
+  - Generating example snippets (animations, transitions, etc.) for the Architect to integrate.
+- Gemini is NOT allowed to:
+  - Make direct architectural decisions that contradict the canonical docs.
+  - Unilaterally rewrite large sections of the codebase.
+
+2.3 Other models
+Any additional models must respect this file and treat the canonical docs as highest authority.
+
+3. PATCHING & FILE MODIFICATION
+
+3.1 PowerShell-first discipline
+- All non-trivial file edits to the repo should be expressed as a PowerShell script that:
+  - Sets `$path` to the target file.
+  - Sets `$content` to the full, updated file contents.
+  - Calls `Set-Content -Path $path -Value $content -Encoding UTF8`.
+- The script must contain ONLY the final, fully integrated file content (no “…insert here” placeholders).
+
+3.2 Exceptions
+- Tiny changes (e.g., one line) may be given as explicit BEFORE/AFTER diff blocks if the user requests it.
+- In all cases, code must be copy–paste–ready with no missing imports.
+
+3.3 Testing expectation
+- After each patch, the assistant must specify:
+  - Which route(s) to visit to verify.
+  - What behaviour to expect.
+  - Any known limitations or follow-up tasks.
+
+4. PROMPTING & COMMUNICATION RULES
+
+4.1 Instruction format
+- All implementation requests to Gemini or the Architect GPT must:
+  - Start with a short “Task” line.
+  - Include a 3–7 step plan.
+  - Provide any relevant file excerpts from the repo and/or canonical docs.
+- All code or scripts must be in fenced ``` blocks so the user can copy them cleanly.
+
+4.2 Screenshots & visual intent
+- Screenshots or past versions of StorySmith are treated as design references, not hard requirements.
+- The Architect should aim to meet or exceed the *feel* (theatrical, theme-park, warm) even if layout details differ.
+
+5. SCOPE BOUNDARIES
+
+5.1 MVP target
+- The v4 MVP must include:
+  - Act I: Forge the Hero (multi-step wizard with persona-driven copy).
+  - Act II: Choose the Companions / Readers.
+  - Act III: Choose the Journey (settings, vibe, length).
+  - /build: Scene Weaver-style story generation.
+  - /preview: print-to-PDF and premium “Download HTML Storybook” exports.
+- No account system, payments, or auth in v4.
+
+Canonical Visual & Tone Guidance
+The file VISUAL_AND_TONE_GUIDE_V1.md is part of the canonical specification. Any UI, copy, or layout change must respect its constraints unless explicitly overruled.
+
+Repo Reality
+The file REPO_SNAPSHOT_YYYY-MM-DD_STORYSMITH_V4.md is the authoritative description of the current implementation. Before proposing new structure, the system must reconcile proposals with the snapshot to avoid diverging from reality.
+
+6. SAFETY & SANITY
+
+6.1 Complexity guardrail
+- Default to the simplest architecture that satisfies the manifest.
+- Prefer incremental improvements over large speculative rewrites.
+- If a proposal would require touching >3 core files at once, the assistant must call this out and request explicit approval.
