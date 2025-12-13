@@ -73,7 +73,13 @@ export default function StartWizard() {
     const audienceLower = audience.toLowerCase();
     const heroLower = heroName.toLowerCase();
 
-    const shouldAutoFill = audience.length === 0 || audienceLower === heroLower;
+    const hasAnd = audienceLower.includes(" and ");
+    const hasDedication = dedication && audienceLower.includes(dedication.toLowerCase());
+
+    const shouldAutoFill =
+      (audience.length === 0 || audienceLower === heroLower) &&
+      !hasAnd &&
+      !hasDedication;
 
     if (shouldAutoFill) {
       setFormData((prev) => ({
@@ -627,6 +633,7 @@ export default function StartWizard() {
     </Layout>
   );
 }
+
 
 
 
