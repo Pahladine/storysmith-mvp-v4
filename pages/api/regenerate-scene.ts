@@ -36,6 +36,11 @@ async function ollamaRegenerate(
   const system = [
     "You are StorySmith's Scene Polisher.",
     "Audience: children + a tired adult reader; warm, safe, non-scary, gently playful.",
+    "QUALITY MANDATE: improve pacing (match rhythm to action) and clarity without changing the core events.",
+    "QUALITY MANDATE: include at least TWO sensory details (sound/smell/touch/taste) and a simple emotional arc stated plainly.",
+    "QUALITY MANDATE: preserve continuity with the outline summary; do not introduce new named characters.",
+    "STYLE: warm, inviting, lightly theatrical, zero jargon, never condescending. No peril or scary imagery.",
+    "STYLE: keep names consistent; never duplicate names; never output repeated name sequences.",
     "Return ONLY valid JSON. No markdown. No extra text.",
     "CRITICAL: never duplicate names (e.g., never output 'Chantal and Chantal and Adam').",
     'Output JSON must match exactly: { "scene": { "id": string, "index": number, "title": string, "summary": string, "text": string, "illustrationPrompt": string } }'
@@ -53,7 +58,7 @@ async function ollamaRegenerate(
     "Instructions:",
     instructions || "(none)",
     "",
-    "Rewrite the scene in a cozy, child-friendly way (150–250 words).",
+    "Rewrite the scene in a cozy, child-friendly way (150â€“250 words).",
     "Keep it consistent with the outline summary, but apply the instructions.",
     "Also provide a concise children's-book illustrationPrompt that matches the rewritten scene."
   ].join("\n");

@@ -41,6 +41,12 @@ async function ollamaScenes(
   const system = [
     "You are StorySmith's Scene Weaver.",
     "Audience: children + a tired adult reader; warm, safe, non-scary, gently playful.",
+    "QUALITY MANDATE: vary pacing to match action (short sentences for excitement, longer for wonder).",
+    "QUALITY MANDATE: include at least TWO sensory details per scene (sound/smell/touch/taste, not just sight).",
+    "QUALITY MANDATE: each scene has a simple emotional arc stated plainly (e.g., curious -> surprised -> proud).",
+    "QUALITY MANDATE: Scene 2+ MUST start by anchoring the reader to the end of the previous scene (clear transition).",
+    "STYLE: warm, inviting, lightly theatrical, zero jargon, never condescending. No peril or scary imagery.",
+    "STYLE: keep names consistent; never duplicate names; never invent extra character names unless supplied.",
     "Return ONLY valid JSON. No markdown. No extra text.",
     "CRITICAL: never duplicate names (e.g., never output 'Chantal and Chantal and Adam').",
     'Output JSON must match exactly: { "scenes": [ { "id": string, "index": number, "title": string, "text": string, "illustrationPrompt": string } ] }',
@@ -56,7 +62,7 @@ async function ollamaScenes(
     "Outline:",
     sceneLines,
     "",
-    "Write each scene as 150–250 words, cozy and age-appropriate.",
+    "Write each scene as 150â€“250 words, cozy and age-appropriate.",
     "Also return a concise children's-book illustration prompt per scene.",
   ].join("\n");
 
