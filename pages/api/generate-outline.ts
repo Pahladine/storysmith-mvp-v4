@@ -1,4 +1,4 @@
-﻿import type { NextApiRequest, NextApiResponse } from "next";
+import type { NextApiRequest, NextApiResponse } from "next";
 import { randomUUID } from "crypto";
 import { generateOutline } from "../../lib/storyEngine";
 import { HeroProfile, ReaderProfile, StorySettings } from "../../lib/models/types";
@@ -21,17 +21,8 @@ export default async function handler(
     }
 
     // Optional but recommended: fail loudly if no provider key is set
-    if (!process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
-      return res.status(500).json({
-        error:
-          "Missing AI provider key. Set OPENAI_API_KEY or GEMINI_API_KEY in .env.local and restart the dev server.",
-        message:
-          "Missing AI provider key. Set OPENAI_API_KEY or GEMINI_API_KEY in .env.local and restart the dev server.",
-        reqId,
-      });
-    }
-
-    // Helpful log (shows what the client is sending)
+    // Provider keys are only required once a real AI provider is wired.
+// Helpful log (shows what the client is sending)
     console.log(
       `[generate-outline ${reqId}] body keys:`,
       Object.keys((req.body ?? {}) as Record<string, unknown>)
