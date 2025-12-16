@@ -15,7 +15,7 @@ export type Act1State = {
   vibe: "Gentle" | "Playful" | "Brave";
   place: "Forest" | "Beach" | "Space";
   length: "Short" | "Medium";
-  buildMode: "Surprise" | "Guided";
+  buildMode: "Guided" | "Guided";
 };
 
 export const act1Script: WizardScript<Act1State> = {
@@ -175,7 +175,7 @@ export const act1Script: WizardScript<Act1State> = {
         { id: "medium", label: "Medium (a little longer)", value: "Medium" },
       ],
       apply: (s, c) => ({ ...s, length: c.value as any }),
-      nextId: "buildMode",
+      nextId: "__COMPLETE__",
     },
 
     {

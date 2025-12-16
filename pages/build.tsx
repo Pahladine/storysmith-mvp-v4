@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+﻿import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
 import { Layout } from "../components/layout/Layout";
 import { Button } from "../components/ui/Button";
@@ -220,6 +220,54 @@ export default function BuildPage() {
           </p>
         </div>
 
+        {/* Mode helper panel */}
+        {settings?.buildMode === "Guided" ? (
+          <div className="w-full mb-6 md:mb-8 bg-white border border-stone-200 rounded-3xl shadow-sm px-6 py-5 md:px-8 md:py-6">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-full px-3 py-1">
+                  Guided Mode
+                </div>
+                <h2 className="mt-3 text-lg md:text-xl font-extrabold text-stone-900">
+                  Your next steps (I’ll walk you through it)
+                </h2>
+                <p className="mt-1 text-sm md:text-base text-stone-600 max-w-3xl">
+                  We’ll do this in two main clicks. If anything feels confusing, stop and I’ll help you fix it.
+                </p>
+              </div>
+              <div className="text-sm text-stone-500">
+                Tip: You can always refresh this page between steps, but avoid refreshing while the Weaver is working.
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                <div className="text-sm font-semibold text-stone-900">Step 1</div>
+                <div className="text-sm text-stone-600 mt-1">Draft the outline (blueprint of scenes)</div>
+              </div>
+              <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                <div className="text-sm font-semibold text-stone-900">Step 2</div>
+                <div className="text-sm text-stone-600 mt-1">Weave the full chapters from the blueprint</div>
+              </div>
+            </div>
+
+            <div className="mt-4 text-xs text-stone-500">
+              After chapters appear, you can edit the text, regenerate a chapter, then click <span className="font-semibold">Read the Book</span>.
+            </div>
+          </div>
+        ) : (
+          <div className="w-full mb-6 md:mb-8 bg-gradient-to-r from-stone-50 via-white to-stone-50 border border-stone-200 rounded-3xl shadow-sm px-6 py-5 md:px-8 md:py-6">
+            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-700 bg-white/70 border border-stone-200 rounded-full px-3 py-1">
+              Surprise Mode
+            </div>
+            <h2 className="mt-3 text-lg md:text-xl font-extrabold text-stone-900">
+              Let’s weave it with fewer hints
+            </h2>
+            <p className="mt-1 text-sm md:text-base text-stone-600 max-w-3xl">
+              Two buttons, and you’ll have a story. If you get stuck, toggle Guided next time for more hand-holding.
+            </p>
+          </div>
+        )}
         {/* Progress panel (keeps content visible, reduces “stuck” feeling) */}
         {busy && (
           <div className="w-full mb-6 p-4 md:p-5 bg-white border border-stone-200 rounded-2xl shadow-sm">

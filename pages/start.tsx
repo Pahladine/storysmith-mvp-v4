@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { useRouter } from "next/router";
 import { Layout } from "../components/layout/Layout";
 import { ChatWizard } from "../components/wizard/ChatWizard";
@@ -21,7 +21,7 @@ export default function StartPage() {
     vibe: "Gentle",
     place: "Forest",
     length: "Short",
-    buildMode: "Surprise",
+    buildMode: "Guided",
   };
 
   return (
@@ -45,7 +45,7 @@ export default function StartPage() {
             length: s.length,
             vibe: s.vibe,
             place: s.place,
-            buildMode: s.buildMode,
+            buildMode: "Guided",
           } as any);
 
           router.push("/build");
