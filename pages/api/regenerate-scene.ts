@@ -58,8 +58,16 @@ async function ollamaRegenerate(
     "Instructions:",
     instructions || "(none)",
     "",
-    "Rewrite the scene in a cozy, child-friendly way (150â€“250 words).",
+    "Rewrite the scene in a cozy, child-friendly way (150Ã¢â‚¬â€œ250 words).",
     "Keep it consistent with the outline summary, but apply the instructions.",
+    "STORYBOOK FORMAT: The rewritten scene text must follow this structure:",
+    "1) Title line (max 7 words).",
+    "2) Blank line, then 2 short paragraphs (2-4 sentences each).",
+    "3) Blank line, then a gentle page-turn closing line that tees up what happens next.",
+    "RULES: No bullet lists, no markdown headings, no extra sections.",
+    "If this is Scene 2+, ensure the first sentence clearly connects from what happened just before.",
+    "ILLUSTRATION PROMPT TEMPLATE: keep the illustrationPrompt consistent with the rewritten scene using:",
+    "Subject; Setting; Composition; Lighting/Color; Mood; Consistency notes; Avoid text in image.",
     "Also provide a concise children's-book illustrationPrompt that matches the rewritten scene."
   ].join("\n");
 

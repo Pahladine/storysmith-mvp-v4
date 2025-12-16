@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
 import { Layout } from "../components/layout/Layout";
 import { Button } from "../components/ui/Button";
@@ -10,6 +10,7 @@ import {
   Loader2,
   RefreshCw,
   BookOpen,
+  Copy,
 } from "lucide-react";
 
 function titleCase(input: string) {
@@ -34,20 +35,72 @@ function buildErrMessage(data: any, res: Response) {
   return msg + (data?.reqId ? ` [ref: ${data.reqId}]` : "");
 }
 
+function parseRefId(message: string): string | undefined {
+  const m = message.match(/\[ref:\s*([^\]]+)\]/i);
+  return m?.[1]?.trim();
+}
+
+type BusyKind = "outline" | "scenes" | "regen";
+
+type BusyState = {
+  kind: BusyKind;
+  title: string;
+  detail: string;
+};
+
+type UiError = {
+  message: string;
+  refId?: string;
+};
+
 export default function BuildPage() {
   const router = useRouter();
   const { state, setOutline, setScenes, updateScene } = useStoryState();
   const { hero, reader, scenes, outline, settings } = state;
 
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<BusyState | null>(null);
+  const [error, setError] = useState<UiError | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!hero.childName) router.replace("/start");
   }, [hero.childName, router]);
 
+  const childName = useMemo(() => titleCase(hero.childName || "your hero"), [hero.childName]);
+
+  // Prefer dedication name as the “read together with” companion label (what you expected)
+  const companion = useMemo(() => {
+    return (hero.readerName || "").trim() || (reader.childName || "").trim() || "you";
+  }, [hero.readerName, reader.childName]);
+
+  const sceneCountLabel = scenes.length > 0 ? `${scenes.length}-chapter` : "magical";
+
+  const isBusy = !!busy;
+  const isBusyOutline = busy?.kind === "outline";
+  const isBusyScenes = busy?.kind === "scenes";
+  const isBusyRegen = busy?.kind === "regen";
+
+  const setNiceError = (msg: string) => {
+    setError({ message: msg, refId: parseRefId(msg) });
+  };
+
+  const copyRef = async (refId: string) => {
+    try {
+      await navigator.clipboard.writeText(refId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 900);
+    } catch {
+      // no-op: clipboard not available
+    }
+  };
+
   const generateOutline = async () => {
-    setIsGenerating(true);
+    setBusy({
+      kind: "outline",
+      title: "Step 1 of 2: Drafting your blueprint…",
+      detail:
+        "We’re outlining the key moments of the story. On local quality models this can take a minute.",
+    });
     setError(null);
 
     try {
@@ -60,19 +113,23 @@ export default function BuildPage() {
       });
 
       const data = await readJsonSafe(res);
-
       if (!res.ok) throw new Error(buildErrMessage(data, res));
 
       setOutline(data?.outline ?? data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setNiceError(err instanceof Error ? err.message : String(err));
     } finally {
-      setIsGenerating(false);
+      setBusy(null);
     }
   };
 
   const generateScenes = async () => {
-    setIsGenerating(true);
+    setBusy({
+      kind: "scenes",
+      title: "Step 2 of 2: Weaving your scenes…",
+      detail:
+        "We’re writing each chapter from the blueprint. This is the slowest step on local models—please keep this tab open.",
+    });
     setError(null);
 
     try {
@@ -88,7 +145,6 @@ export default function BuildPage() {
       });
 
       const data = await readJsonSafe(res);
-
       if (!res.ok) throw new Error(buildErrMessage(data, res));
 
       if (!data?.scenes || !Array.isArray(data.scenes)) {
@@ -97,14 +153,19 @@ export default function BuildPage() {
 
       setScenes(data.scenes);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setNiceError(err instanceof Error ? err.message : String(err));
     } finally {
-      setIsGenerating(false);
+      setBusy(null);
     }
   };
 
   const regenerateScene = async (sceneId: string) => {
-    setIsGenerating(true);
+    setBusy({
+      kind: "regen",
+      title: "Polishing this chapter…",
+      detail:
+        "We’re gently rewriting the scene while keeping the hero and setting consistent. This can take a moment on local models.",
+    });
     setError(null);
 
     try {
@@ -113,7 +174,6 @@ export default function BuildPage() {
       const isStrict = settings.mode === "custom";
 
       // IMPORTANT: match API contract (hero, reader, settings, outline, sceneId)
-      // Keep instructions as an extra field if your endpoint supports it; otherwise it will be ignored.
       const payload = {
         hero,
         reader,
@@ -122,7 +182,7 @@ export default function BuildPage() {
         sceneId,
         instructions: isStrict
           ? "Follow the original plan exactly."
-          : "Make it more magical.",
+          : "Make it more magical, warm, and child-friendly.",
       };
 
       const res = await fetch("/api/regenerate-scene", {
@@ -132,31 +192,20 @@ export default function BuildPage() {
       });
 
       const data = await readJsonSafe(res);
-
       if (!res.ok) throw new Error(buildErrMessage(data, res));
 
       if (data?.scene) updateScene(data.scene);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setNiceError(err instanceof Error ? err.message : String(err));
     } finally {
-      setIsGenerating(false);
+      setBusy(null);
     }
   };
-
-  const childName = titleCase(hero.childName || "your hero");
-
-  // Prefer dedication name as the “read together with” companion label (what you expected)
-  const companion =
-    (hero.readerName || "").trim() ||
-    (reader.childName || "").trim() ||
-    "you";
-
-  const sceneCountLabel = scenes.length > 0 ? `${scenes.length}-chapter` : "magical";
 
   return (
     <Layout title="Weave Your Story - StorySmith">
       <div className="flex-grow flex flex-col items-center p-4 sm:p-6 max-w-5xl mx-auto w-full">
-        <div className="w-full mb-8 md:mb-10 bg-gradient-to-r from-orange-50 via-amber-50 to-indigo-50 border border-orange-100 rounded-3xl shadow-sm px-6 py-6 md:px-8 md:py-7">
+        <div className="w-full mb-6 md:mb-8 bg-gradient-to-r from-orange-50 via-amber-50 to-indigo-50 border border-orange-100 rounded-3xl shadow-sm px-6 py-6 md:px-8 md:py-7">
           <div className="text-xs font-semibold tracking-wide uppercase text-orange-600 mb-2">
             Act II · Weave the Adventure
           </div>
@@ -171,45 +220,115 @@ export default function BuildPage() {
           </p>
         </div>
 
+        {/* Progress panel (keeps content visible, reduces “stuck” feeling) */}
+        {busy && (
+          <div className="w-full mb-6 p-4 md:p-5 bg-white border border-stone-200 rounded-2xl shadow-sm">
+            <div className="flex items-start gap-3">
+              <Loader2 className="h-5 w-5 mt-0.5 animate-spin text-orange-500" />
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-stone-900">{busy.title}</div>
+                <div className="text-sm text-stone-600 mt-1">{busy.detail}</div>
+                <div className="text-xs text-stone-500 mt-3">
+                  Tip: If you change tabs, it’s fine—just avoid refreshing this page while the
+                  Weaver is working.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {error && (
-          <div className="w-full mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 flex items-center">
-            <span className="mr-2">⚠️</span> {error}
+          <div className="w-full mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-800">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-semibold mb-1">Something went wrong</div>
+                <div className="text-sm break-words">{error.message}</div>
+
+                {error.refId && (
+                  <div className="mt-3 text-sm flex items-center gap-2">
+                    <span className="font-mono text-xs bg-white/60 border border-red-200 px-2 py-1 rounded-md">
+                      ref: {error.refId}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => copyRef(error.refId!)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-red-800 underline underline-offset-2 hover:text-red-900"
+                    >
+                      <Copy className="h-3 w-3" />
+                      {copied ? "Copied" : "Copy ref"}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Retry button: choose the most likely next action */}
+              <div className="flex-shrink-0">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (!outline) return generateOutline();
+                    if (outline && scenes.length === 0) return generateScenes();
+                    return generateOutline();
+                  }}
+                  disabled={isBusy}
+                >
+                  Try again
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
-        {isGenerating && (
-          <div className="w-full py-20 flex flex-col items-center justify-center text-stone-500 animate-in fade-in">
-            <Loader2 className="h-10 w-10 animate-spin text-orange-500 mb-4" />
-            <p className="text-lg font-medium">The Scene Weaver is working magic...</p>
-            <p className="text-sm opacity-75">This might take a moment.</p>
-          </div>
-        )}
-
-        {!isGenerating && !outline && (
-          <div className="w-full text-center py-10 bg-white rounded-3xl border border-stone-200 shadow-sm px-6">
+        {/* OUTLINE STEP */}
+        {!outline && (
+          <div className={"w-full text-center py-10 bg-white rounded-3xl border border-stone-200 shadow-sm px-6 " + (isBusy ? "opacity-70" : "")}>
             <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
               <Sparkles className="h-8 w-8 text-orange-600" />
             </div>
             <h2 className="text-2xl font-bold text-stone-900 mb-4">First, let's sketch the plan.</h2>
             <p className="text-stone-600 mb-8 max-w-lg mx-auto">
-              We'll outline the key moments of the story based on your settings.
+              We’ll outline the key moments of the story based on your choices.
             </p>
-            <Button size="lg" onClick={generateOutline}>
-              Draft the Outline <ArrowRight className="ml-2 h-5 w-5" />
+            <Button size="lg" onClick={generateOutline} disabled={isBusy}>
+              {isBusyOutline ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Drafting…
+                </>
+              ) : (
+                <>
+                  Draft the Outline <ArrowRight className="ml-2 h-5 w-5" />
+                </>
+              )}
             </Button>
           </div>
         )}
 
-        {!isGenerating && outline && scenes.length === 0 && (
-          <div className="w-full animate-in slide-in-from-bottom-4 duration-500">
+        {/* BLUEPRINT STEP */}
+        {outline && scenes.length === 0 && (
+          <div className={"w-full animate-in slide-in-from-bottom-4 duration-500 " + (isBusy ? "opacity-70" : "")}>
             <div className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden">
               <div className="bg-indigo-50 p-6 border-b border-indigo-100 flex justify-between items-center flex-wrap gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-indigo-900">The Story Blueprint</h2>
-                  <p className="text-indigo-700 text-sm">Here is the plan for our adventure.</p>
+                  <p className="text-indigo-700 text-sm">
+                    Here’s the plan. If it feels right, we’ll weave the full chapters next.
+                  </p>
                 </div>
-                <Button onClick={generateScenes} className="shadow-lg shadow-indigo-200">
-                  Looks Good! Weave Scenes <ArrowRight className="ml-2 h-4 w-4" />
+
+                <Button
+                  onClick={generateScenes}
+                  className="shadow-lg shadow-indigo-200"
+                  disabled={isBusy}
+                >
+                  {isBusyScenes ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Weaving…
+                    </>
+                  ) : (
+                    <>
+                      Looks Good! Weave Scenes <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
                 </Button>
               </div>
 
@@ -219,7 +338,7 @@ export default function BuildPage() {
                     <div className="flex-shrink-0 w-8 h-8 bg-white rounded-full border border-stone-200 flex items-center justify-center font-bold text-stone-400 text-xs">
                       {s.index}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <h3 className="font-bold text-stone-800 text-lg mb-1">{s.title}</h3>
                       <p className="text-stone-600 text-sm leading-relaxed">{s.summary}</p>
                     </div>
@@ -228,9 +347,13 @@ export default function BuildPage() {
               </div>
 
               <div className="p-4 bg-stone-50 border-t border-stone-100 text-center">
-                <p className="text-xs text-stone-400">
+                <p className="text-xs text-stone-500">
                   Not quite right?{" "}
-                  <button onClick={generateOutline} className="underline hover:text-stone-600">
+                  <button
+                    onClick={generateOutline}
+                    className={"underline hover:text-stone-700 " + (isBusy ? "opacity-60 pointer-events-none" : "")}
+                    disabled={isBusy as any}
+                  >
                     Re-roll the outline
                   </button>
                 </p>
@@ -239,8 +362,9 @@ export default function BuildPage() {
           </div>
         )}
 
-        {!isGenerating && scenes.length > 0 && (
-          <div className="w-full animate-in slide-in-from-bottom-4 duration-500">
+        {/* SCENES STEP */}
+        {scenes.length > 0 && (
+          <div className={"w-full animate-in slide-in-from-bottom-4 duration-500 " + (isBusy ? "opacity-90" : "")}>
             <div className="mt-4 md:mt-6 bg-stone-50/70 border border-stone-200 rounded-3xl px-4 md:px-6 py-6 md:py-8">
               <div className="mb-6 md:mb-8 text-center md:text-left">
                 <h2 className="text-xl font-bold text-stone-800">Your Chapters So Far</h2>
@@ -266,9 +390,14 @@ export default function BuildPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => regenerateScene(scene.id)}
+                          disabled={isBusy}
                           title="Ask Scene Weaver to try again"
                         >
-                          <RefreshCw className="h-4 w-4 text-stone-400 hover:text-stone-600" />
+                          {isBusyRegen ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-stone-500" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4 text-stone-400 hover:text-stone-600" />
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -296,6 +425,7 @@ export default function BuildPage() {
                   size="lg"
                   className="w-full sm:w-auto px-12 shadow-xl shadow-orange-200 text-lg"
                   onClick={() => router.push("/preview")}
+                  disabled={isBusy}
                 >
                   <BookOpen className="mr-2 h-6 w-6" /> Read the Book
                 </Button>

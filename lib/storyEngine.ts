@@ -14,6 +14,33 @@ const simulateDelay = (ms: number) => new Promise(resolve => setTimeout(resolve,
 
 const getSafeHeroName = (hero: HeroProfile) =>
   hero.childName && hero.childName.trim().length > 0 ? hero.childName.trim() : "the child hero";
+const getCompanionLabel = (heroName: string, relationshipDescription?: string) => {
+  const raw = (relationshipDescription || "").trim();
+  if (!raw) return "their favorite grown-up";
+
+  const h = heroName.trim();
+  const hLower = h.toLowerCase();
+  let s = raw;
+
+  // If user stored "Hero and Companion" in the relationship field, strip the hero part.
+  // Examples:
+  //  - "Chantal and Adam" -> "Adam"
+  //  - "Adam and Chantal" -> "Adam"
+  const lower = s.toLowerCase();
+  const hasJoiner = lower.includes(" and ") || lower.includes(" & ");
+  const mentionsHero = lower.includes(hLower);
+
+  if (hasJoiner && mentionsHero) {
+    // Remove leading "Hero and " or "Hero & "
+    s = s.replace(new RegExp("^\\s*" + h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*(and|&)\\s*", "i"), "").trim();
+    // Remove trailing " and Hero" / " & Hero"
+    s = s.replace(new RegExp("\\s*(and|&)\\s*" + h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*$", "i"), "").trim();
+  }
+
+  if (!s || s.toLowerCase() === hLower) return "their favorite grown-up";
+  return s;
+};
+
 
 const getSafeReaderLabel = (reader: ReaderProfile) =>
   reader.relationshipDescription && reader.relationshipDescription.trim().length > 0
@@ -138,7 +165,7 @@ export async function generateOutline(
   await simulateDelay(1500);
 
   const heroName = getSafeHeroName(hero);
-  const readerName = getSafeReaderLabel(reader);
+  const readerName = getCompanionLabel(heroName, reader.relationshipDescription);
   const setting = settings.setting || "a bright meadow";
   const vibe = settings.adventureType;
 
@@ -208,7 +235,7 @@ export async function generateScenes(
   await simulateDelay(2500);
 
   const heroName = getSafeHeroName(hero);
-  const readerName = getSafeReaderLabel(reader);
+  const readerName = getCompanionLabel(heroName, reader.relationshipDescription);
   const customIdea = settings.userIdea;
 
   return outline.scenes.map((outlineScene) => {
@@ -337,3 +364,4 @@ export class StoryEngine {
 }
 
 export const storyEngine = new StoryEngine();
+
