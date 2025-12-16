@@ -104,6 +104,19 @@ export function ChatWizard<TState>(props: Props<TState>) {
     }
     setStepId(next);
   };
+  const jumpTo = (targetId: string) => {
+    const t = stepsById.get(targetId as any);
+    if (!t) return;
+
+    // “Rewind” the ride to the selected step
+    setStepId(targetId);
+    setMessages([{ id: "m0", from: "host", text: t.host }]);
+    setExtraOpen(false);
+    setExtraText("");
+    setIdeasOpen(false);
+    setTranscriptOpen(false);
+  };
+
 
   const handleChoice = (choice: WizardChoice) => {
     markComplete(stepId);
@@ -294,7 +307,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
           </div>
 
           {/* Park Pass */}
-          <div className="rounded-3xl border border-black/10 bg-white/70 p-5 shadow-sm">
+          <div className="rounded-3xl border border-black/10 bg-white/70 p-5 shadow-sm relative z-10 pointer-events-auto">
             <div className="text-sm font-semibold">Your Park Pass</div>
             {stamps.length ? (
               <div className="mt-3 flex flex-wrap gap-2">
@@ -311,35 +324,85 @@ export function ChatWizard<TState>(props: Props<TState>) {
             <div className="mt-1 text-xs opacity-70">Updates as you make choices.</div>
             <div className="mt-4 space-y-3">
   <div className="rounded-2xl border border-black/10 bg-white p-4">
-    <div className="text-[11px] uppercase tracking-wide opacity-60">Hero</div>
+    <div className="flex items-center justify-between gap-2">
+      <div className="text-[11px] uppercase tracking-wide opacity-60">Hero</div>
+      <button
+        type="button"
+        className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
+        onClick={() => jumpTo(script.initialStepId)}
+        title="Edit this"
+      >
+        Edit
+      </button>
+    </div>
     <div className="mt-1 text-base font-semibold">
       {(((state as any).childName || "") as string).trim() || "—"}
     </div>
   </div>
 
   <div className="rounded-2xl border border-black/10 bg-white p-4">
-    <div className="text-[11px] uppercase tracking-wide opacity-60">Companion</div>
+    <div className="flex items-center justify-between gap-2">
+      <div className="text-[11px] uppercase tracking-wide opacity-60">Companion</div>
+      <button
+        type="button"
+        className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
+        onClick={() => jumpTo("companion")}
+        title="Edit this"
+      >
+        Edit
+      </button>
+    </div>
     <div className="mt-1 text-base font-semibold">
       {(((state as any).companionName || "") as string).trim() || "—"}
     </div>
   </div>
 
   <div className="rounded-2xl border border-black/10 bg-white p-4">
-    <div className="text-[11px] uppercase tracking-wide opacity-60">Vibe</div>
+    <div className="flex items-center justify-between gap-2">
+      <div className="text-[11px] uppercase tracking-wide opacity-60">Vibe</div>
+      <button
+        type="button"
+        className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
+        onClick={() => jumpTo("vibe")}
+        title="Edit this"
+      >
+        Edit
+      </button>
+    </div>
     <div className="mt-1 text-base font-semibold">
       {String((state as any).vibe ?? "—")}
     </div>
   </div>
 
   <div className="rounded-2xl border border-black/10 bg-white p-4">
-    <div className="text-[11px] uppercase tracking-wide opacity-60">Place</div>
+    <div className="flex items-center justify-between gap-2">
+      <div className="text-[11px] uppercase tracking-wide opacity-60">Place</div>
+      <button
+        type="button"
+        className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
+        onClick={() => jumpTo("place")}
+        title="Edit this"
+      >
+        Edit
+      </button>
+    </div>
     <div className="mt-1 text-base font-semibold">
       {String((state as any).place ?? "—")}
     </div>
   </div>
 
   <div className="rounded-2xl border border-black/10 bg-white p-4">
-    <div className="text-[11px] uppercase tracking-wide opacity-60">Length</div>
+    <div className="flex items-center justify-between gap-2">
+      <div className="text-[11px] uppercase tracking-wide opacity-60">Length</div>
+      <button
+        type="button"
+        className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
+        onClick={() => jumpTo("length")}
+        title="Edit this"
+      >
+        Edit
+      </button>
+    </div>
     <div className="mt-1 text-base font-semibold">
       {String((state as any).length ?? "—")}
     </div>
