@@ -57,3 +57,8 @@ patch_*.ps1
 
 # Local reference material (keep outside repo unless explicitly curated)
 Old Prompts/
+# Local patch scripts
+patch_*.ps1
+
+# Local reference material (keep on disk, not in git)
+Old Prompts/
