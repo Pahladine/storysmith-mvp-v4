@@ -26,6 +26,8 @@ export function ChatWizard<TState>(props: Props<TState>) {
   const [extraOpen, setExtraOpen] = useState<boolean>(false);
   const [extraText, setExtraText] = useState<string>("");
   const [transcriptOpen, setTranscriptOpen] = useState<boolean>(false);
+  const [ideasOpen, setIdeasOpen] = useState<boolean>(false);
+  const [completedStepIds, setCompletedStepIds] = useState<string[]>([]);
 
   const step = stepsById.get(stepId);
 
@@ -64,6 +66,36 @@ export function ChatWizard<TState>(props: Props<TState>) {
   const totalSteps = allSteps.filter((s) => typeof s?.id === "string" && s.id !== "__COMPLETE__").length || 1;
   const stepIndex = Math.max(0, allSteps.findIndex((s) => s?.id === stepId));
   const progressPct = Math.max(0, Math.min(100, Math.round(((Math.min(stepIndex + 1, totalSteps)) / totalSteps) * 100)));
+  const markComplete = (id: string) => {
+    setCompletedStepIds((prev) => (prev.includes(id) ? prev : prev.concat(id)));
+  };
+
+  const stamps = useMemo(() => {
+    const out: string[] = [];
+    const done = (id: string) => completedStepIds.includes(id);
+    const hasText = (v: any) => String(v ?? "").trim().length > 0;
+
+    if (done("childName") && hasText((state as any).childName)) out.push("Hero named");
+    if (done("companion") || done("companionName")) out.push("Companion set");
+    if (done("vibe")) out.push("Mood set");
+    if (done("place")) out.push("Map pinned");
+    if (done("length")) out.push("Length set");
+
+    return out;
+  }, [completedStepIds, state]);
+
+  const ideasForStep = useMemo(() => {
+    const id = stepId;
+    // Keep this intentionally small and friendly; we can expand later.
+    const map: Record<string, string[]> = {
+      childName: ["Arlo", "Scarlett", "Milo", "Nova", "Ruby"],
+      readerName: ["Grandpa", "Nana", "Dad", "Mom", "Auntie"],
+      relationshipDescription: ["a bedtime story buddy", "my favorite adventurer", "our cozy cuddle-time", "a brave helper", "my giggle partner"],
+      companionName: ["a baby axolotl named Billy", "Luna the playful puppy", "a tiny robot called Spark", "a brave kitten named Poppy"],
+    };
+    return map[id] ?? [];
+  }, [stepId]);
+
 
   const goNext = (next: string) => {
     if (next === "__COMPLETE__") {
@@ -74,6 +106,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
   };
 
   const handleChoice = (choice: WizardChoice) => {
+    markComplete(stepId);
     setMessages((prev) => prev.concat([{ id: `m${prev.length}`, from: "user", text: choice.label }]));
 
     const nextState = (step.kind === "choice" ? (step.apply as any)(state, choice) : state) as TState;
@@ -96,6 +129,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
   const handleSayContinue = () => {
     if (step.kind !== "say") return;
+    markComplete(stepId);
     goNext(step.nextId);
   };
 
@@ -142,6 +176,43 @@ export function ChatWizard<TState>(props: Props<TState>) {
               <div className="text-xs uppercase tracking-wide opacity-60">{script.persona.name} says</div>
               <div className="mt-2 text-lg md:text-xl leading-relaxed">{step.host}</div>
               <div className="mt-3 text-sm opacity-60">You can change choices later.</div>
+              <div className="mt-4">
+                <button
+                  type="button"
+                  className="text-sm underline opacity-70 hover:opacity-100"
+                  onClick={() => setIdeasOpen((v) => !v)}
+                >
+                  {ideasOpen ? "Hide ideas" : "Need ideas?"}
+                </button>
+              
+                {ideasOpen ? (
+                  <div className="mt-3 rounded-2xl border border-black/10 bg-white/70 p-4 text-sm">
+                    {step.kind === "choice" ? (
+                      <>
+                        <div className="font-semibold mb-2">Quick guidance</div>
+                        <div className="opacity-80">
+                          Pick the one that feels right. You can change it later.
+                        </div>
+                      </>
+                    ) : null}
+              
+                    {step.kind === "text" ? (
+                      <>
+                        <div className="font-semibold mb-2">Examples</div>
+                        {ideasForStep.length ? (
+                          <ul className="list-disc pl-5 space-y-1 opacity-80">
+                            {ideasForStep.map((t) => (
+                              <li key={t}>{t}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="opacity-80">A short phrase is perfect. You can skip if it’s optional.</div>
+                        )}
+                      </>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <div className="mt-4 rounded-3xl border border-black/10 bg-white/70 p-5 shadow-sm">
@@ -178,30 +249,24 @@ export function ChatWizard<TState>(props: Props<TState>) {
                     </div>
                   ) : null}
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid gap-2 md:gap-3">
                     {step.choices.map((c) => (
-                      <Button key={c.id} onClick={() => handleChoice(c)} variant="secondary">
-                        {c.label}
-                      </Button>
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => handleChoice(c)}
+                        className="w-full text-left rounded-2xl border border-black/10 bg-white px-4 py-3 shadow-sm hover:shadow-md hover:bg-black/[0.02] transition"
+                      >
+                        <div className="text-base font-semibold">{c.label}</div>
+                        {c.hint ? <div className="mt-1 text-sm opacity-70">{c.hint}</div> : null}
+                      </button>
                     ))}
                   </div>
-
-                  {step.choices.some((c) => c.hint) ? (
-                    <div className="mt-2 space-y-1 text-sm opacity-75">
-                      {step.choices
-                        .filter((c) => c.hint)
-                        .map((c) => (
-                          <div key={c.id}>
-                            <span className="font-medium">{c.label}:</span> {c.hint}
-                          </div>
-                        ))}
-                    </div>
-                  ) : null}
                 </div>
               ) : null}
 
               {step.kind === "text" ? (
-                <TextStep step={step} state={state} setState={setState} setMessages={setMessages} goNext={goNext} />
+                <TextStep step={step} state={state} setState={setState} setMessages={setMessages} goNext={goNext} onCompleteStep={markComplete} />
               ) : null}
             </div>
 
@@ -231,10 +296,59 @@ export function ChatWizard<TState>(props: Props<TState>) {
           {/* Park Pass */}
           <div className="rounded-3xl border border-black/10 bg-white/70 p-5 shadow-sm">
             <div className="text-sm font-semibold">Your Park Pass</div>
+            {stamps.length ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {stamps.map((t) => (
+                  <span
+                    key={t}
+                    className="inline-flex items-center rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-semibold opacity-80"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+            ) : null}
             <div className="mt-1 text-xs opacity-70">Updates as you make choices.</div>
-            <pre className="mt-3 max-h-[70vh] overflow-auto rounded-2xl border border-black/10 bg-white p-3 text-xs leading-relaxed">
-{JSON.stringify(state, null, 2)}
-            </pre>
+            <div className="mt-4 space-y-3">
+  <div className="rounded-2xl border border-black/10 bg-white p-4">
+    <div className="text-[11px] uppercase tracking-wide opacity-60">Hero</div>
+    <div className="mt-1 text-base font-semibold">
+      {(((state as any).childName || "") as string).trim() || "—"}
+    </div>
+  </div>
+
+  <div className="rounded-2xl border border-black/10 bg-white p-4">
+    <div className="text-[11px] uppercase tracking-wide opacity-60">Companion</div>
+    <div className="mt-1 text-base font-semibold">
+      {(((state as any).companionName || "") as string).trim() || "—"}
+    </div>
+  </div>
+
+  <div className="rounded-2xl border border-black/10 bg-white p-4">
+    <div className="text-[11px] uppercase tracking-wide opacity-60">Vibe</div>
+    <div className="mt-1 text-base font-semibold">
+      {String((state as any).vibe ?? "—")}
+    </div>
+  </div>
+
+  <div className="rounded-2xl border border-black/10 bg-white p-4">
+    <div className="text-[11px] uppercase tracking-wide opacity-60">Place</div>
+    <div className="mt-1 text-base font-semibold">
+      {String((state as any).place ?? "—")}
+    </div>
+  </div>
+
+  <div className="rounded-2xl border border-black/10 bg-white p-4">
+    <div className="text-[11px] uppercase tracking-wide opacity-60">Length</div>
+    <div className="mt-1 text-base font-semibold">
+      {String((state as any).length ?? "—")}
+    </div>
+  </div>
+
+  <div className="pt-2 text-xs opacity-60">
+    Next: we’ll use this “pass” to weave your outline and chapters in Act II.
+  </div>
+</div>
           </div>
         </div>
       </div>
@@ -248,8 +362,9 @@ function TextStep<TState>(props: {
   setState: (s: TState) => void;
   setMessages: React.Dispatch<React.SetStateAction<WizardMessage[]>>;
   goNext: (next: string) => void;
+  onCompleteStep?: (id: string) => void;
 }) {
-  const { step, state, setState, setMessages, goNext } = props;
+  const { step, state, setState, setMessages, goNext, onCompleteStep } = props;
   const [text, setText] = useState<string>("");
 
   const disabled = step.required ? text.trim().length === 0 : false;
@@ -261,6 +376,7 @@ function TextStep<TState>(props: {
     setMessages((prev) => prev.concat([{ id: `m${prev.length}`, from: "user", text: value || "(skipped)" }]));
     const nextState = step.apply(state, value);
     setState(nextState);
+    onCompleteStep?.(step.id);
     goNext(step.nextId);
   };
 
