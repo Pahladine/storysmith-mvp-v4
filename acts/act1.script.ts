@@ -110,7 +110,22 @@ export const act1Script: WizardScript<Act1State> = {
         { id: "no", label: "No companion — hero solo", value: "no" },
       ],
       apply: (s, c) => (c.value === "no" ? { ...s, companionName: "" } : s),
-      nextId: (s, c) => (c.value === "yes" ? "companionName" : "vibe"),
+      nextId: (s, c) => (c.value === "yes" ? "companionPick" : "vibe"),
+    },
+
+    {
+      id: "companionPick",
+      kind: "choice",
+      host: "Pick a companion (or choose Custom).",
+      choices: [
+        { id: "axolotl", label: "A baby axolotl named Billy", value: "A baby axolotl named Billy" },
+        { id: "puppy", label: "Luna the playful puppy", value: "Luna the playful puppy" },
+        { id: "robot", label: "A tiny robot called Spark", value: "A tiny robot called Spark" },
+        { id: "custom", label: "Custom (I’ll type my own)", value: "__custom__" },
+      ],
+      apply: (s, c) =>
+        c.value === "__custom__" ? s : { ...s, companionName: String(c.value) },
+      nextId: (s, c) => (c.value === "__custom__" ? "companionName" : "vibe"),
     },
 
     {
@@ -128,9 +143,9 @@ export const act1Script: WizardScript<Act1State> = {
       kind: "choice",
       host: "What should the story feel like?",
       choices: [
-        { id: "gentle", label: "Gentle & cozy", value: "Gentle" },
-        { id: "playful", label: "Playful & silly", value: "Playful" },
-        { id: "brave", label: "Brave & bright", value: "Brave" },
+        { id: "gentle", label: "Gentle (cozy, calm, kind)", value: "Gentle" },
+        { id: "playful", label: "Playful (funny, goofy, high-energy)", value: "Playful" },
+        { id: "brave", label: "Brave (adventurous, bold, exciting)", value: "Brave" },
       ],
       apply: (s, c) => ({ ...s, vibe: c.value as any }),
       nextId: "place",
