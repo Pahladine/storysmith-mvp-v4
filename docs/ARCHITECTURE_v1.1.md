@@ -150,6 +150,8 @@ No long-term server-side storage is required for v4, but the state model is desi
 The AI integration is encapsulated in a `StoryEngine` abstraction.  
 The frontend never calls the LLM directly.
 
+Legacy prompt-pack documents (e.g., ‘V4 full PP’) describe a richer multi-file prompt ecosystem. For v4 Web, these are inspiration only. The authoritative state shape is StoryState and related types defined in STATE_AND_APIS_v1.1.md. Do not introduce prompt-pack structures (e.g., SessionState, CharacterBlock, StoryBlueprintBlock) into the runtime web app without an explicit Blueprint version bump.
+
 Concept:
 
 - `StoryEngine` interface encapsulates:

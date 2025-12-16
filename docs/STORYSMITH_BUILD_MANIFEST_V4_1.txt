@@ -207,6 +207,8 @@ Illustration prompts:
     - Rich, book-like layout with cover page, clear chapter/scene headings, and comfortable typography.
     - May include additional visual flourishes (scene cards, dividers, illustration-prompt boxes) that do not appear in PDF.
 
+Premium HTML storybook exports must feel like a real digital picture book: distinct cover, clear chapter pages, generous whitespace, better typography than the in-app preview, and subtle flourish (background, dividers, etc.). PDF is the “practical” output; HTML is the “wow”.
+
 
 Example & About pages:
 - Read-only.
