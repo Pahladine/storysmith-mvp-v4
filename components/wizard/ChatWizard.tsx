@@ -305,8 +305,8 @@ export function ChatWizard<TState>(props: Props<TState>) {
                       <div
                         className={
                           m.from === "host"
-                            ? "max-w-[90%] rounded-2xl border border-black/10 bg-white p-3 shadow-sm"
-                            : "max-w-[90%] rounded-2xl border border-black/10 bg-black/5 p-3 shadow-sm"
+                            ? "max-w-[90%] rounded-3xl border border-black/10 bg-white/80 backdrop-blur p-4 shadow-sm text-stone-900"
+                            : "max-w-[90%] rounded-3xl border border-indigo-200 bg-indigo-600 p-4 shadow-sm text-white"
                         }
                       >
                         {m.text}
