@@ -198,6 +198,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
           {/* Stage */}
           <div>
             <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
+              <div className="mb-3 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold tracking-wide text-indigo-700">Now boarding…</div>
               <div className="text-xs uppercase tracking-wide opacity-60">{script.persona.name} says</div>
               <div className="mt-2 text-lg md:text-xl leading-relaxed">{step.host}</div>
               <div className="mt-3 text-sm opacity-60">You can change choices later.</div>
@@ -300,18 +301,26 @@ export function ChatWizard<TState>(props: Props<TState>) {
               <div className="mt-4 rounded-3xl border border-black/10 bg-white/70 p-5 shadow-sm">
                 <div className="text-sm font-semibold">Transcript</div>
                 <div className="mt-3 space-y-3">
-                  {messages.map((m) => (
+                  {messages.map((m, idx) => (
                     <div key={m.id} className={m.from === "host" ? "flex justify-start" : "flex justify-end"}>
-                      <div
-                        className={
-                          m.from === "host"
-                            ? "max-w-[90%] rounded-3xl border border-black/10 bg-white/80 backdrop-blur p-4 shadow-sm text-stone-900"
-                            : "max-w-[90%] rounded-3xl border border-indigo-200 bg-indigo-600 p-4 shadow-sm text-white"
-                        }
-                      >
-                        {m.text}
-                      </div>
-                    </div>
+  <div className="max-w-[90%]">
+    {m.from === "host" && (idx === 0 || messages[idx - 1]?.from === "user") ? (
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-500/80">
+        Now boarding…
+      </div>
+    ) : null}
+
+    <div
+      className={
+        m.from === "host"
+          ? "max-w-[90%] rounded-3xl border border-black/10 bg-white/80 backdrop-blur p-4 shadow-sm text-stone-900"
+          : "max-w-[90%] rounded-3xl border border-indigo-200 bg-indigo-600 p-4 shadow-sm text-white"
+      }
+    >
+      {m.text}
+    </div>
+  </div>
+</div>
                   ))}
                 </div>
               </div>
