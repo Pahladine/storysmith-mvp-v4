@@ -150,6 +150,18 @@ export function ChatWizard<TState>(props: Props<TState>) {
     <div className={className}>
       <div className="mx-auto w-full max-w-6xl px-4 py-6">
         {/* Ride Marquee */}
+        <div className="mb-3 rounded-3xl border border-black/10 bg-white/60 p-3 shadow-sm">
+  <div className="flex items-center justify-between gap-3">
+    <div className="text-xs font-semibold tracking-wide uppercase opacity-70">Ride progress</div>
+    <div className="text-xs opacity-70">{progressPct}%</div>
+  </div>
+  <div className="mt-2 h-2 w-full rounded-full bg-black/5 overflow-hidden">
+    <div
+      className="h-2 rounded-full bg-indigo-300"
+      style={{ width: `${progressPct}%` }}
+    />
+  </div>
+</div>
         <div className="mb-4 rounded-3xl border border-black/10 bg-white/70 p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
