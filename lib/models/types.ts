@@ -38,6 +38,7 @@ export type StorySettingKey =
 export type StoryMode = "guided" | "custom";
 
 export type StorySettings = {
+  buildMode?: "Surprise" | "Guided";
   adventureType: StoryVibe;
   length: StoryLength;
   /** Overall tone knob for later use (currently always "gentle" for MVP) */

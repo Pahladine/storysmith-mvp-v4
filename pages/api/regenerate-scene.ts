@@ -1,4 +1,4 @@
-import type { NextApiRequest, NextApiResponse } from "next";
+﻿import type { NextApiRequest, NextApiResponse } from "next";
 import { randomUUID } from "crypto";
 import type { HeroProfile, ReaderProfile, StorySettings, StoryOutline, StoryScene } from "../../lib/models/types";
 import { regenerateScene as regenerateSceneLocal } from "../../lib/storyEngine";
@@ -6,9 +6,246 @@ import { regenerateScene as regenerateSceneLocal } from "../../lib/storyEngine";
 type SuccessOut = { scene: StoryScene; reqId: string };
 type ErrorOut = { error: string; message: string; reqId: string };
 
-function getProvider(): "ollama" | "local" {
-  const raw = (process.env.AI_PROVIDER || "ollama").toLowerCase();
-  return raw === "local" ? "local" : "ollama";
+type Provider = "ollama" | "local" | "openai";
+
+function getProvider(): Provider {
+  const raw = String(process.env.AI_PROVIDER || "ollama").toLowerCase().trim();
+  if (raw === "local") return "local";
+  if (raw === "openai") return "openai";
+  return "ollama";
+}
+
+function normalizeText(x: any) {
+  return String(x ?? "").replace(/\s+/g, " ").trim();
+}
+
+function hasImageData(obj: any): boolean {
+  if (!obj || typeof obj !== "object") return false;
+  for (const k of ["heroPhotoDataUrl", "photoDataUrl", "imageDataUrl", "dataUrl", "photo", "image"]) {
+    const v = (obj as any)[k];
+    if (typeof v === "string" && v.startsWith("data:image/")) return true;
+  }
+  for (const [, v] of Object.entries(obj)) {
+    if (typeof v === "string" && v.length > 2000 && v.startsWith("data:image/")) return true;
+  }
+  return false;
+}
+
+function stripLargeFields(obj: any) {
+  if (!obj || typeof obj !== "object") return obj;
+  const clone: any = Array.isArray(obj) ? [] : {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (typeof v === "string") {
+      if (v.startsWith("data:image/") || v.length > 2000) continue;
+      clone[k] = v;
+      continue;
+    }
+    clone[k] = v;
+  }
+  delete clone.heroPhotoDataUrl;
+  delete clone.photoDataUrl;
+  delete clone.imageDataUrl;
+  delete clone.dataUrl;
+  return clone;
+}
+
+function buildHeroVisualNotes(hero: any): string {
+  if (!hero || typeof hero !== "object") return "";
+  const h = stripLargeFields(hero);
+  const parts: string[] = [];
+  const add = (label: string, val: any) => {
+    const t = normalizeText(val);
+    if (t) parts.push(`${label}: ${t}`);
+  };
+
+  add("heroType", (h as any).heroType);
+  add("species", (h as any).species);
+  add("age", (h as any).age);
+  add("skin", (h as any).skinTone || (h as any).skin);
+  add("eyes", (h as any).eyeColor || (h as any).eyes);
+  add("hair", (h as any).hairColor || (h as any).hair);
+  add("outfit", (h as any).outfit || (h as any).clothing);
+  add("accessory", (h as any).accessory);
+  add("companion", (h as any).companionName || (h as any).companion);
+
+  if (Array.isArray((h as any).traits) && (h as any).traits.length) {
+    const t = (h as any).traits.map(normalizeText).filter(Boolean).slice(0, 6).join(", ");
+    if (t) parts.push(`traits: ${t}`);
+  }
+
+  return parts.join("; ");
+}
+
+function buildDesignSchema(settings: any): string {
+  const fromSettings =
+    normalizeText(settings?.designSchema) ||
+    normalizeText(settings?.illustrationStyle) ||
+    normalizeText(settings?.artStyle) ||
+    normalizeText(settings?.visualStyle) ||
+    "";
+  if (fromSettings) return fromSettings;
+
+  return "Children's storybook illustration; warm, gentle, safe; painterly watercolor/gouache feel; soft lighting; clean shapes; cohesive character design across scenes; no on-image text; no watermarks; no scary/peril imagery; no weapons; no injuries.";
+}
+
+function extractResponseText(resp: any): string {
+  if (typeof resp?.output_text === "string" && resp.output_text.trim()) return resp.output_text.trim();
+
+  const out: string[] = [];
+  for (const item of resp?.output ?? []) {
+    if (item?.type !== "message") continue;
+    for (const c of item?.content ?? []) {
+      if (c?.type === "output_text" && typeof c?.text === "string") out.push(c.text);
+    }
+  }
+  return out.join("\n").trim();
+}
+
+async function openaiJson<T>(args: {
+  model: string;
+  temperature: number;
+  maxOutputTokens: number;
+  schemaName: string;
+  schema: any;
+  input: Array<{ role: "system" | "user"; content: string }>;
+}): Promise<T> {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) throw new Error("Missing OPENAI_API_KEY");
+
+  const body = {
+    model: args.model,
+    input: args.input,
+    temperature: args.temperature,
+    max_output_tokens: args.maxOutputTokens,
+    text: {
+      format: {
+        type: "json_schema",
+        name: args.schemaName,
+        strict: true,
+        schema: args.schema,
+      },
+    },
+  };
+
+  const res = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify(body),
+  });
+
+  const rawText = await res.text();
+  if (!res.ok) throw new Error(`OpenAI error ${res.status}: ${rawText.slice(0, 800)}`);
+
+  let envelope: any;
+  try {
+    envelope = JSON.parse(rawText);
+  } catch {
+    throw new Error("OpenAI returned non-JSON response envelope.");
+  }
+
+  const outputText = extractResponseText(envelope);
+  if (!outputText) throw new Error("OpenAI response missing output text.");
+
+  try {
+    return JSON.parse(outputText) as T;
+  } catch {
+    const body2 = {
+      model: args.model,
+      input: [
+        ...args.input,
+        { role: "system" as const, content: "Return ONLY valid JSON. No markdown. No extra text." },
+      ],
+      temperature: args.temperature,
+      max_output_tokens: args.maxOutputTokens,
+      text: { format: { type: "json_object" } },
+    };
+
+    const res2 = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(body2),
+    });
+
+    const rawText2 = await res2.text();
+    if (!res2.ok) throw new Error(`OpenAI error ${res2.status}: ${rawText2.slice(0, 800)}`);
+
+    let envelope2: any;
+    try {
+      envelope2 = JSON.parse(rawText2);
+    } catch {
+      throw new Error("OpenAI returned non-JSON response envelope (fallback).");
+    }
+
+    const outputText2 = extractResponseText(envelope2);
+    if (!outputText2) throw new Error("OpenAI response missing output text (fallback).");
+    return JSON.parse(outputText2) as T;
+  }
+}
+
+const SYSTEM = [
+  "You are StorySmith's Scene Polisher.",
+  "Audience: children + a tired adult reader; warm, safe, non-scary, gently playful.",
+  "QUALITY MANDATE: improve pacing (match rhythm to action) and clarity without changing core events.",
+  "QUALITY MANDATE: include at least TWO sensory details and a simple emotional arc stated plainly.",
+  "QUALITY MANDATE: preserve continuity with the outline summary; do not introduce new named characters.",
+  "STYLE: warm, inviting, lightly theatrical, zero jargon, never condescending. No peril or scary imagery.",
+  "Return ONLY valid JSON. No markdown. No extra text.",
+].join("\n");
+
+function buildUserPrompt(
+  hero: HeroProfile,
+  reader: ReaderProfile,
+  settings: StorySettings,
+  outline: StoryOutline,
+  sceneId: string,
+  instructions: string
+) {
+  const heroName = normalizeText((hero as any).childName || (hero as any).name || "the hero");
+  const readerLabel = normalizeText((reader as any).relationshipDescription || (reader as any).childName || "their favorite grown-up");
+  const tone = normalizeText((settings as any).tone ?? (settings as any).vibe ?? "gentle");
+  const place = normalizeText((settings as any).setting ?? (settings as any).place ?? "a cozy place");
+  const schema = buildDesignSchema(settings);
+
+  const refPhoto = hasImageData(hero) ? "yes (use it only as consistency guidance; do NOT mention it in the prompt)" : "no";
+  const heroNotes = buildHeroVisualNotes(hero) || "(none provided)";
+
+  const sceneIndexMatch = sceneId.split("-").pop() || "1";
+  const outlineScene = ((outline as any).scenes || []).find((s: any) => String(s.id || "").endsWith(sceneIndexMatch));
+  const originalSummary = outlineScene?.summary || "A fun moment in the story.";
+
+  return [
+    `Hero: ${heroName}`,
+    `Reader label: ${readerLabel}`,
+    `Tone: ${tone}`,
+    `Place: ${place}`,
+    `Reference photo provided: ${refPhoto}`,
+    `Hero visual notes (best-effort): ${heroNotes}`,
+    `Design schema (locked): ${schema}`,
+    "",
+    `Scene ID to rewrite: ${sceneId}`,
+    `Original outline summary: ${originalSummary}`,
+    "",
+    "Instructions:",
+    instructions || "(none)",
+    "",
+    "Rewrite the scene in a cozy, child-friendly way (150-250 words).",
+    "Keep it consistent with the outline summary, but apply the instructions.",
+    "STORYBOOK FORMAT: The rewritten scene text must follow this structure:",
+    "1) Title line (max 7 words).",
+    "2) Blank line, then 2 short paragraphs (2-4 sentences each).",
+    "3) Blank line, then a gentle page-turn closing line that tees up what happens next.",
+    "RULES: No bullet lists, no markdown headings, no extra sections.",
+    "If this is Scene 2+, ensure the first sentence clearly connects from what happened just before.",
+    "",
+    "ILLUSTRATION PROMPT OUTPUT (professional, schema-driven):",
+    "illustrationPrompt MUST be a SINGLE LINE using semicolon-separated labeled segments in this exact order:",
+    "STYLE: ...; CHARACTERS: ...; SETTING: ...; ACTION: ...; COMPOSITION: ...; LIGHTING/COLOR: ...; MOOD: ...; CONSISTENCY: ...; NEGATIVE: ...",
+    "Rules:",
+    "- Use the locked design schema style.",
+    "- Keep hero/companion physical features and outfits consistent across scenes.",
+    "- No scary imagery, no weapons, no injuries, and NO written text in the image.",
+    "- Do not include markdown, bullets, or quotes in illustrationPrompt.",
+  ].join("\n");
 }
 
 async function ollamaRegenerate(
@@ -24,52 +261,7 @@ async function ollamaRegenerate(
   const model = process.env.OLLAMA_MODEL || "dolphin-llama3:latest";
   const temperature = process.env.OLLAMA_TEMPERATURE ? Number(process.env.OLLAMA_TEMPERATURE) : 0.7;
 
-  const heroName = (hero.childName || "the hero").trim();
-  const readerLabel = (reader.relationshipDescription || reader.childName || "their favorite grown-up").trim();
-  const tone = (settings as any).tone ?? (settings as any).vibe ?? "gentle";
-  const place = (settings as any).setting ?? (settings as any).place ?? "a cozy place";
-
-  const sceneIndexMatch = sceneId.split("-").pop() || "1";
-  const outlineScene = (outline.scenes || []).find((s: any) => String(s.id || "").endsWith(sceneIndexMatch));
-  const originalSummary = outlineScene?.summary || "A fun moment in the story.";
-
-  const system = [
-    "You are StorySmith's Scene Polisher.",
-    "Audience: children + a tired adult reader; warm, safe, non-scary, gently playful.",
-    "QUALITY MANDATE: improve pacing (match rhythm to action) and clarity without changing the core events.",
-    "QUALITY MANDATE: include at least TWO sensory details (sound/smell/touch/taste) and a simple emotional arc stated plainly.",
-    "QUALITY MANDATE: preserve continuity with the outline summary; do not introduce new named characters.",
-    "STYLE: warm, inviting, lightly theatrical, zero jargon, never condescending. No peril or scary imagery.",
-    "STYLE: keep names consistent; never duplicate names; never output repeated name sequences.",
-    "Return ONLY valid JSON. No markdown. No extra text.",
-    "CRITICAL: never duplicate names (e.g., never output 'Chantal and Chantal and Adam').",
-    'Output JSON must match exactly: { "scene": { "id": string, "index": number, "title": string, "summary": string, "text": string, "illustrationPrompt": string } }'
-  ].join("\n");
-
-  const user = [
-    `Hero: ${heroName}`,
-    `Reader label: ${readerLabel}`,
-    `Tone: ${tone}`,
-    `Place: ${place}`,
-    "",
-    `Scene ID to rewrite: ${sceneId}`,
-    `Original outline summary: ${originalSummary}`,
-    "",
-    "Instructions:",
-    instructions || "(none)",
-    "",
-    "Rewrite the scene in a cozy, child-friendly way (150Ã¢â‚¬â€œ250 words).",
-    "Keep it consistent with the outline summary, but apply the instructions.",
-    "STORYBOOK FORMAT: The rewritten scene text must follow this structure:",
-    "1) Title line (max 7 words).",
-    "2) Blank line, then 2 short paragraphs (2-4 sentences each).",
-    "3) Blank line, then a gentle page-turn closing line that tees up what happens next.",
-    "RULES: No bullet lists, no markdown headings, no extra sections.",
-    "If this is Scene 2+, ensure the first sentence clearly connects from what happened just before.",
-    "ILLUSTRATION PROMPT TEMPLATE: keep the illustrationPrompt consistent with the rewritten scene using:",
-    "Subject; Setting; Composition; Lighting/Color; Mood; Consistency notes; Avoid text in image.",
-    "Also provide a concise children's-book illustrationPrompt that matches the rewritten scene."
-  ].join("\n");
+  const user = buildUserPrompt(hero, reader, settings, outline, sceneId, instructions);
 
   const res = await fetch(`${base}/api/chat`, {
     method: "POST",
@@ -80,7 +272,7 @@ async function ollamaRegenerate(
       format: "json",
       options: { temperature },
       messages: [
-        { role: "system", content: system },
+        { role: "system", content: SYSTEM },
         { role: "user", content: user }
       ]
     })
@@ -102,6 +294,9 @@ async function ollamaRegenerate(
     throw new Error("Ollama returned non-JSON content (despite format=json)");
   }
 
+  const outlineSceneIndexMatch = sceneId.split("-").pop() || "1";
+  const outlineScene = ((outline as any).scenes || []).find((s: any) => String(s.id || "").endsWith(outlineSceneIndexMatch));
+
   const s = parsed?.scene ?? {};
   const index = Number.isFinite(Number(s?.index)) ? Number(s.index) : (outlineScene?.index ?? 1);
 
@@ -112,6 +307,66 @@ async function ollamaRegenerate(
     summary: typeof s?.summary === "string" ? s.summary : (outlineScene?.summary || "A refreshed chapter summary."),
     text: typeof s?.text === "string" ? s.text : "",
     illustrationPrompt: typeof s?.illustrationPrompt === "string" ? s.illustrationPrompt : ""
+  };
+}
+
+async function openaiRegenerate(
+  hero: HeroProfile,
+  reader: ReaderProfile,
+  settings: StorySettings,
+  outline: StoryOutline,
+  sceneId: string,
+  instructions: string
+): Promise<StoryScene> {
+  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+  const temperature =
+    process.env.OPENAI_TEMPERATURE ? Number(process.env.OPENAI_TEMPERATURE) :
+    process.env.OLLAMA_TEMPERATURE ? Number(process.env.OLLAMA_TEMPERATURE) :
+    0.7;
+
+  const user = buildUserPrompt(hero, reader, settings, outline, sceneId, instructions);
+
+  const schema = {
+    type: "object",
+    additionalProperties: false,
+    required: ["scene"],
+    properties: {
+      scene: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "index", "title", "summary", "text", "illustrationPrompt"],
+        properties: {
+          id: { type: "string" },
+          index: { type: "number" },
+          title: { type: "string" },
+          summary: { type: "string" },
+          text: { type: "string" },
+          illustrationPrompt: { type: "string" },
+        },
+      },
+    },
+  };
+
+  const data = await openaiJson<{ scene: StoryScene }>({
+    model,
+    temperature: Number.isFinite(temperature) ? temperature : 0.7,
+    maxOutputTokens: 1400,
+    schemaName: "regenerated_scene",
+    schema,
+    input: [
+      { role: "system", content: SYSTEM },
+      { role: "user", content: user },
+    ],
+  });
+
+  const scene = (data as any)?.scene ?? {};
+  return {
+    id: String(scene?.id ?? sceneId),
+    index: Number.isFinite(Number(scene?.index)) ? Number(scene.index) : 1,
+    title: typeof scene?.title === "string" ? scene.title : "Rewritten Scene",
+    summary: typeof scene?.summary === "string" ? scene.summary : "",
+    text: typeof scene?.text === "string" ? scene.text : "",
+    illustrationPrompt: typeof scene?.illustrationPrompt === "string" ? scene.illustrationPrompt : "",
   };
 }
 
@@ -147,12 +402,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     if (provider === "local") {
       // Local engine signature: (hero, reader, settings, outline, sceneId)
-      // Note: local engine does NOT accept freeform instructions; those are Ollama-only for now.
+      // Note: local engine does NOT accept freeform instructions; those are AI-provider-only.
       const scene = await regenerateSceneLocal(hero, reader, settings, outline, sceneId);
       return res.status(200).json({ scene, reqId });
     }
 
-    const scene = await ollamaRegenerate(reqId, hero, reader, settings, outline, sceneId, instructions);
+    const scene =
+      provider === "openai"
+        ? await openaiRegenerate(hero, reader, settings, outline, sceneId, instructions)
+        : await ollamaRegenerate(reqId, hero, reader, settings, outline, sceneId, instructions);
+
     return res.status(200).json({ scene, reqId });
 
   } catch (err: any) {

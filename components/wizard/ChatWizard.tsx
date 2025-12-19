@@ -1,126 +1,131 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../ui/Button";
-import type { WizardMessage, WizardScript, WizardStep, WizardChoice } from "./types";
+import type { WizardMessage, WizardScript, WizardStep, WizardChoice, WizardUploadedFile } from "./types";
 
 type Props<TState> = {
   script: WizardScript<TState>;
   initialState: TState;
-  onComplete?: (state: TState) => void;
+  onComplete: (state: TState) => void;
   className?: string;
 };
 
-function byId<T extends { id: string }>(arr: T[]) {
-  const map = new Map<string, T>();
-  for (const item of arr) map.set(item.id, item);
-  return map;
+/** Tiny helpers (keep inline, minimal deps) */
+function hasText(x: any) {
+  return typeof x === "string" && x.trim().length > 0;
 }
 
 export function ChatWizard<TState>(props: Props<TState>) {
   const { script, initialState, onComplete, className } = props;
 
-  const stepsById = useMemo(() => byId<WizardStep<TState>>(script.steps as any), [script.steps]);
-
-  const [state, setState] = useState<TState>(initialState);
+  const [state, setState] = useState<TState>(initialState as TState);
   const [stepId, setStepId] = useState<string>(script.initialStepId);
   const [messages, setMessages] = useState<WizardMessage[]>([]);
-  const [extraOpen, setExtraOpen] = useState<boolean>(false);
-  const [extraText, setExtraText] = useState<string>("");
-  const [transcriptOpen, setTranscriptOpen] = useState<boolean>(false);
-  const [ideasOpen, setIdeasOpen] = useState<boolean>(false);
-  const [completedStepIds, setCompletedStepIds] = useState<string[]>([]);
+  const [completed, setCompleted] = useState<string[]>([]);
+  const [ideasOpen, setIdeasOpen] = useState(false);
+  const [extraOpen, setExtraOpen] = useState(false);
+  const [extraText, setExtraText] = useState("");
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [schemaOpen, setSchemaOpen] = useState(false);
 
-  const step = stepsById.get(stepId);
+  const stepsById = useMemo(() => {
+    const map = new Map<string, WizardStep<TState>>();
+    for (const s of script.steps) map.set(s.id, s as any);
+    return map;
+  }, [script.steps]);
+
+  const stepIndex = useMemo(() => {
+    const idx = script.steps.findIndex((s) => s.id === stepId);
+    return idx < 0 ? 0 : idx;
+  }, [script.steps, stepId]);
+
+  const totalSteps = script.steps.length;
+  const progressPct = Math.max(0, Math.min(100, Math.round(((stepIndex + 1) / totalSteps) * 100)));
+
+  const step = stepsById.get(stepId) as WizardStep<TState> | undefined;
+
+  const ideasForStep = useMemo(() => {
+    if (!step) return [];
+    // very light, no big system yet
+    if (step.id === "heroName") return ["Scarlett", "Arlo", "Chantal", "Captain Sunny"];
+    if (step.id === "readerName") return ["Adam", "Grandma Ginette", "Ayla", "Friend"];
+    if (step.id === "relationshipCustom") return ["Aunt and niece", "Coach and team", "Best friends"];
+    if (step.id === "companionName") return ["A baby axolotl named Billy", "A tiny robot named Spark", "A brave kitten named Luna"];
+    return [];
+  }, [step]);
+
+  const done = (id: string) => completed.includes(id);
+
+  const stamps = useMemo(() => {
+    const out: string[] = [];
+    if (done("heroName")) out.push("Hero set");
+    if (done("heroPhoto") && hasText((state as any).heroPhotoDataUrl)) out.push("Photo set");
+    if (done("companionPick") || done("companionName") || done("companion")) out.push("Companion set");
+    if (done("vibe")) out.push("Mood set");
+    if (done("place")) out.push("Setting set");
+    if (done("length")) out.push("Length set");
+    return out.slice(0, 6);
+  }, [completed, state]);
+
+  const markComplete = (id: string) => {
+    setCompleted((prev) => (prev.includes(id) ? prev : prev.concat([id])));
+  };
+
+  /**
+   * IMPORTANT:
+   * React state updates are async. If we call onComplete(state) immediately after setState(nextState),
+   * we can complete with stale state. So goNext accepts an optional override.
+   */
+  const goNext = (next: string, nextStateOverride?: TState) => {
+    const effectiveState = (nextStateOverride ?? state) as TState;
+
+    if (next === "__COMPLETE__") {
+      onComplete(effectiveState);
+      return;
+    }
+    setIdeasOpen(false);
+    setExtraOpen(false);
+    setExtraText("");
+    setStepId(next);
+  };
+
+  const jumpTo = (id: string) => {
+    setIdeasOpen(false);
+    setExtraOpen(false);
+    setExtraText("");
+    setStepId(id);
+  };
 
   useEffect(() => {
     if (!step) return;
-    setMessages([{ id: "m0", from: "host", text: step.host }]);
-    setExtraOpen(false);
-    setExtraText("");
-    setTranscriptOpen(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!step) return;
-    setExtraOpen(false);
-    setExtraText("");
-
     setMessages((prev) => {
       const last = prev[prev.length - 1];
-      if (last?.from === "host" && last.text === step.host) return prev;
-      return prev.concat([{ id: `m${prev.length}`, from: "host", text: step.host }]);
+      const hostText = String((step as any).host ?? "");
+      if (last && last.from === "host" && last.text === hostText) return prev;
+      return prev.concat([{ id: `m${prev.length}`, from: "host", text: hostText }]);
     });
-  }, [stepId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepId]);
 
   if (!step) {
     return (
       <div className={className}>
-        <div className="rounded-2xl border border-black/10 bg-white/60 p-4 text-base md:text-lg">
-          Wizard error: step not found: <span className="font-mono">{String(stepId)}</span>
+        <div className="mx-auto w-full max-w-3xl px-4 py-10">
+          <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
+            <div className="text-lg font-semibold">Wizard Error</div>
+            <div className="mt-2 text-sm opacity-70">
+              Could not find step <span className="font-mono">{stepId}</span>.
+            </div>
+            <div className="mt-4">
+              <Button onClick={() => jumpTo(script.initialStepId)}>Restart</Button>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  const allSteps = (script.steps as any[]) ?? [];
-  const totalSteps = allSteps.filter((s) => typeof s?.id === "string" && s.id !== "__COMPLETE__").length || 1;
-  const stepIndex = Math.max(0, allSteps.findIndex((s) => s?.id === stepId));
-  const progressPct = Math.max(0, Math.min(100, Math.round(((Math.min(stepIndex + 1, totalSteps)) / totalSteps) * 100)));
-  const markComplete = (id: string) => {
-    setCompletedStepIds((prev) => (prev.includes(id) ? prev : prev.concat(id)));
-  };
-
-  const stamps = useMemo(() => {
-    const out: string[] = [];
-    const done = (id: string) => completedStepIds.includes(id);
-    const hasText = (v: any) => String(v ?? "").trim().length > 0;
-
-    if (done("childName") && hasText((state as any).childName)) out.push("Hero named");
-    if (done("companion") || done("companionName")) out.push("Companion set");
-    if (done("vibe")) out.push("Mood set");
-    if (done("place")) out.push("Map pinned");
-    if (done("length")) out.push("Length set");
-
-    return out;
-  }, [completedStepIds, state]);
-
-  const ideasForStep = useMemo(() => {
-    const id = stepId;
-    // Keep this intentionally small and friendly; we can expand later.
-    const map: Record<string, string[]> = {
-      childName: ["Arlo", "Scarlett", "Milo", "Nova", "Ruby"],
-      readerName: ["Grandpa", "Nana", "Dad", "Mom", "Auntie"],
-      relationshipDescription: ["a bedtime story buddy", "my favorite adventurer", "our cozy cuddle-time", "a brave helper", "my giggle partner"],
-      companionName: ["a baby axolotl named Billy", "Luna the playful puppy", "a tiny robot called Spark", "a brave kitten named Poppy"],
-    };
-    return map[id] ?? [];
-  }, [stepId]);
-
-
-  const goNext = (next: string) => {
-    if (next === "__COMPLETE__") {
-      onComplete?.(state);
-      return;
-    }
-    setStepId(next);
-  };
-  const jumpTo = (targetId: string) => {
-    const t = stepsById.get(targetId as any);
-    if (!t) return;
-
-    // “Rewind” the ride to the selected step
-    setStepId(targetId);
-    setMessages([{ id: "m0", from: "host", text: t.host }]);
-    setExtraOpen(false);
-    setExtraText("");
-    setIdeasOpen(false);
-    setTranscriptOpen(false);
-  };
-
-
   const handleChoice = (choice: WizardChoice) => {
-    markComplete(stepId);
-    setMessages((prev) => prev.concat([{ id: `m${prev.length}`, from: "user", text: choice.label }]));
+    if (step.kind !== "choice") return;
 
     const nextState = (step.kind === "choice" ? (step.apply as any)(state, choice) : state) as TState;
 
@@ -128,7 +133,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
     if (step.kind === "choice" && step.extraFlavor?.apply && extraOpen && extraText.trim().length > 0) {
       finalState = (step.extraFlavor.apply as any)(finalState, extraText.trim()) as TState;
       setMessages((prev) =>
-        prev.concat([{ id: `m${prev.length}`, from: "user", text: `(extra) ${extraText.trim()}` }])
+        prev.concat([{ id: `m${prev.length}`, from: "user", text: `(extra)\n${extraText.trim()}` }])
       );
     }
 
@@ -137,13 +142,15 @@ export function ChatWizard<TState>(props: Props<TState>) {
     const nextId =
       typeof step.nextId === "function" ? (step.nextId as any)(finalState, choice) : (step.nextId as string);
 
-    goNext(nextId);
+    markComplete(stepId);
+    setMessages((prev) => prev.concat([{ id: `m${prev.length}`, from: "user", text: choice.label }]));
+    goNext(nextId, finalState);
   };
 
   const handleSayContinue = () => {
     if (step.kind !== "say") return;
     markComplete(stepId);
-    goNext(step.nextId);
+    goNext(step.nextId, state);
   };
 
   return (
@@ -151,17 +158,15 @@ export function ChatWizard<TState>(props: Props<TState>) {
       <div className="mx-auto w-full max-w-6xl px-4 py-6">
         {/* Ride Marquee */}
         <div className="mb-3 rounded-3xl border border-black/10 bg-white/60 p-3 shadow-sm">
-  <div className="flex items-center justify-between gap-3">
-    <div className="text-xs font-semibold tracking-wide uppercase opacity-70">Ride progress</div>
-    <div className="text-xs opacity-70">{progressPct}%</div>
-  </div>
-  <div className="mt-2 h-2 w-full rounded-full bg-black/5 overflow-hidden">
-    <div
-      className="h-2 rounded-full bg-indigo-300"
-      style={{ width: `${progressPct}%` }}
-    />
-  </div>
-</div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-xs font-semibold tracking-wide uppercase opacity-70">Ride progress</div>
+            <div className="text-xs opacity-70">{progressPct}%</div>
+          </div>
+          <div className="mt-2 h-2 w-full rounded-full bg-black/5 overflow-hidden">
+            <div className="h-2 rounded-full bg-indigo-300" style={{ width: `${progressPct}%` }} />
+          </div>
+        </div>
+
         <div className="mb-4 rounded-3xl border border-black/10 bg-white/70 p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -198,10 +203,13 @@ export function ChatWizard<TState>(props: Props<TState>) {
           {/* Stage */}
           <div>
             <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
-              <div className="mb-3 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold tracking-wide text-indigo-700">Now boarding…</div>
+              <div className="mb-3 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold tracking-wide text-indigo-700">
+                Now boarding…
+              </div>
               <div className="text-xs uppercase tracking-wide opacity-60">{script.persona.name} says</div>
-              <div className="mt-2 text-lg md:text-xl leading-relaxed">{step.host}</div>
+              <div className="mt-2 text-lg md:text-xl leading-relaxed">{(step as any).host}</div>
               <div className="mt-3 text-sm opacity-60">You can change choices later.</div>
+
               <div className="mt-4">
                 <button
                   type="button"
@@ -210,18 +218,16 @@ export function ChatWizard<TState>(props: Props<TState>) {
                 >
                   {ideasOpen ? "Hide ideas" : "Need ideas?"}
                 </button>
-              
+
                 {ideasOpen ? (
                   <div className="mt-3 rounded-2xl border border-black/10 bg-white/70 p-4 text-sm">
                     {step.kind === "choice" ? (
                       <>
                         <div className="font-semibold mb-2">Quick guidance</div>
-                        <div className="opacity-80">
-                          Pick the one that feels right. You can change it later.
-                        </div>
+                        <div className="opacity-80">Pick the one that feels right. You can change it later.</div>
                       </>
                     ) : null}
-              
+
                     {step.kind === "text" ? (
                       <>
                         <div className="font-semibold mb-2">Examples</div>
@@ -264,6 +270,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
                           {extraOpen ? "Hide" : "Add"}
                         </button>
                       </div>
+
                       {extraOpen ? (
                         <input
                           value={extraText}
@@ -291,8 +298,26 @@ export function ChatWizard<TState>(props: Props<TState>) {
                 </div>
               ) : null}
 
+              {step.kind === "upload" ? (
+                <UploadStep
+                  step={step}
+                  state={state}
+                  setState={setState}
+                  setMessages={setMessages}
+                  goNext={goNext}
+                  onCompleteStep={markComplete}
+                />
+              ) : null}
+
               {step.kind === "text" ? (
-                <TextStep step={step} state={state} setState={setState} setMessages={setMessages} goNext={goNext} onCompleteStep={markComplete} />
+                <TextStep
+                  step={step}
+                  state={state}
+                  setState={setState}
+                  setMessages={setMessages}
+                  goNext={goNext}
+                  onCompleteStep={markComplete}
+                />
               ) : null}
             </div>
 
@@ -303,24 +328,24 @@ export function ChatWizard<TState>(props: Props<TState>) {
                 <div className="mt-3 space-y-3">
                   {messages.map((m, idx) => (
                     <div key={m.id} className={m.from === "host" ? "flex justify-start" : "flex justify-end"}>
-  <div className="max-w-[90%]">
-    {m.from === "host" && (idx === 0 || messages[idx - 1]?.from === "user") ? (
-      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-500/80">
-        Now boarding…
-      </div>
-    ) : null}
+                      <div className="max-w-[90%]">
+                        {m.from === "host" && (idx === 0 || messages[idx - 1]?.from === "user") ? (
+                          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-500/80">
+                            Now boarding…
+                          </div>
+                        ) : null}
 
-    <div
-      className={
-        m.from === "host"
-          ? "max-w-[90%] rounded-3xl border border-black/10 bg-white/80 backdrop-blur p-4 shadow-sm text-stone-900"
-          : "max-w-[90%] rounded-3xl border border-indigo-200 bg-indigo-600 p-4 shadow-sm text-white"
-      }
-    >
-      {m.text}
-    </div>
-  </div>
-</div>
+                        <div
+                          className={
+                            m.from === "host"
+                              ? "max-w-[90%] rounded-3xl border border-black/10 bg-white/80 backdrop-blur p-4 shadow-sm text-stone-900"
+                              : "max-w-[90%] rounded-3xl border border-indigo-200 bg-indigo-600 p-4 shadow-sm text-white"
+                          }
+                        >
+                          {m.text}
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -329,7 +354,17 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
           {/* Park Pass */}
           <div className="rounded-3xl border border-black/10 bg-white/70 p-5 shadow-sm relative z-10 pointer-events-auto">
-            <div className="text-sm font-semibold">Your Park Pass</div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-semibold">Your Park Pass</div>
+              <button
+                type="button"
+                className="text-xs underline opacity-70 hover:opacity-100"
+                onClick={() => setSchemaOpen((v) => !v)}
+              >
+                {schemaOpen ? "Hide details" : "Show details"}
+              </button>
+            </div>
+
             {stamps.length ? (
               <div className="mt-3 flex flex-wrap gap-2">
                 {stamps.map((t) => (
@@ -343,99 +378,277 @@ export function ChatWizard<TState>(props: Props<TState>) {
               </div>
             ) : null}
             <div className="mt-1 text-xs opacity-70">Updates as you make choices.</div>
+
+            {schemaOpen ? (
+              <pre className="mt-3 max-h-72 overflow-auto rounded-2xl border border-black/10 bg-white p-3 text-[11px] font-mono opacity-80 whitespace-pre-wrap">
+{JSON.stringify(state, null, 2)}
+              </pre>
+            ) : null}
+
             <div className="mt-4 space-y-3">
-  <div className="rounded-2xl border border-black/10 bg-white p-4">
-    <div className="flex items-center justify-between gap-2">
-      <div className="text-[11px] uppercase tracking-wide opacity-60">Hero</div>
-      <button
-        type="button"
-        className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
-        onClick={() => jumpTo(script.initialStepId)}
-        title="Edit this"
-      >
-        Edit
-      </button>
-    </div>
-    <div className="mt-1 text-base font-semibold">
-      {(((state as any).childName || "") as string).trim() || "—"}
-    </div>
-  </div>
+              <div className="rounded-2xl border border-black/10 bg-white p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[11px] uppercase tracking-wide opacity-60">Hero</div>
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
+                    onClick={() => jumpTo("heroName")}
+                    title="Edit this"
+                  >
+                    Edit
+                  </button>
+                </div>
+                <div className="mt-1 text-base font-semibold">
+                  {(((state as any).childName || "") as string).trim() || "—"}
+                </div>
+              </div>
 
-  <div className="rounded-2xl border border-black/10 bg-white p-4">
-    <div className="flex items-center justify-between gap-2">
-      <div className="text-[11px] uppercase tracking-wide opacity-60">Companion</div>
-      <button
-        type="button"
-        className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
-        onClick={() => jumpTo("companion")}
-        title="Edit this"
-      >
-        Edit
-      </button>
-    </div>
-    <div className="mt-1 text-base font-semibold">
-      {(((state as any).companionName || "") as string).trim() || "—"}
-    </div>
-  </div>
+              <div className="rounded-2xl border border-black/10 bg-white p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[11px] uppercase tracking-wide opacity-60">Photo</div>
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
+                    onClick={() => jumpTo("heroPhoto")}
+                    title="Upload / replace photo"
+                  >
+                    Edit
+                  </button>
+                </div>
+                <div className="mt-1 text-base font-semibold">
+                  {hasText((state as any).heroPhotoDataUrl) ? "Added" : "—"}
+                </div>
+                {hasText((state as any).heroPhotoDataUrl) ? (
+                  <img
+                    src={String((state as any).heroPhotoDataUrl)}
+                    alt="Hero photo preview"
+                    className="mt-2 h-20 w-20 rounded-2xl object-cover border border-black/10"
+                  />
+                ) : null}
+              </div>
 
-  <div className="rounded-2xl border border-black/10 bg-white p-4">
-    <div className="flex items-center justify-between gap-2">
-      <div className="text-[11px] uppercase tracking-wide opacity-60">Vibe</div>
-      <button
-        type="button"
-        className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
-        onClick={() => jumpTo("vibe")}
-        title="Edit this"
-      >
-        Edit
-      </button>
-    </div>
-    <div className="mt-1 text-base font-semibold">
-      {String((state as any).vibe ?? "—")}
-    </div>
-  </div>
+              <div className="rounded-2xl border border-black/10 bg-white p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[11px] uppercase tracking-wide opacity-60">Companion</div>
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
+                    onClick={() => jumpTo("companion")}
+                    title="Edit this"
+                  >
+                    Edit
+                  </button>
+                </div>
+                <div className="mt-1 text-base font-semibold">
+                  {(((state as any).companionName || "") as string).trim() || "—"}
+                </div>
+              </div>
 
-  <div className="rounded-2xl border border-black/10 bg-white p-4">
-    <div className="flex items-center justify-between gap-2">
-      <div className="text-[11px] uppercase tracking-wide opacity-60">Place</div>
-      <button
-        type="button"
-        className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
-        onClick={() => jumpTo("place")}
-        title="Edit this"
-      >
-        Edit
-      </button>
-    </div>
-    <div className="mt-1 text-base font-semibold">
-      {String((state as any).place ?? "—")}
-    </div>
-  </div>
+              <div className="rounded-2xl border border-black/10 bg-white p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[11px] uppercase tracking-wide opacity-60">Vibe</div>
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
+                    onClick={() => jumpTo("vibe")}
+                    title="Edit this"
+                  >
+                    Edit
+                  </button>
+                </div>
+                <div className="mt-1 text-base font-semibold">{String((state as any).vibe ?? "—")}</div>
+              </div>
 
-  <div className="rounded-2xl border border-black/10 bg-white p-4">
-    <div className="flex items-center justify-between gap-2">
-      <div className="text-[11px] uppercase tracking-wide opacity-60">Length</div>
-      <button
-        type="button"
-        className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
-        onClick={() => jumpTo("length")}
-        title="Edit this"
-      >
-        Edit
-      </button>
-    </div>
-    <div className="mt-1 text-base font-semibold">
-      {String((state as any).length ?? "—")}
-    </div>
-  </div>
+              <div className="rounded-2xl border border-black/10 bg-white p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[11px] uppercase tracking-wide opacity-60">Place</div>
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
+                    onClick={() => jumpTo("place")}
+                    title="Edit this"
+                  >
+                    Edit
+                  </button>
+                </div>
+                <div className="mt-1 text-base font-semibold">{String((state as any).place ?? "—")}</div>
+              </div>
 
-  <div className="pt-2 text-xs opacity-60">
-    Next: we’ll use this “pass” to weave your outline and chapters in Act II.
-  </div>
-</div>
+              <div className="rounded-2xl border border-black/10 bg-white p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[11px] uppercase tracking-wide opacity-60">Length</div>
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer pointer-events-auto"
+                    onClick={() => jumpTo("length")}
+                    title="Edit this"
+                  >
+                    Edit
+                  </button>
+                </div>
+                <div className="mt-1 text-base font-semibold">{String((state as any).length ?? "—")}</div>
+              </div>
+
+              <div className="pt-2 text-xs opacity-60">
+                Next: we’ll use this “pass” to weave your outline and chapters in Act II.
+              </div>
+            </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function UploadStep<TState>(props: {
+  step: Extract<WizardStep<TState>, { kind: "upload" }>;
+  state: TState;
+  setState: (s: TState) => void;
+  setMessages: React.Dispatch<React.SetStateAction<WizardMessage[]>>;
+  goNext: (next: string, nextStateOverride?: TState) => void;
+  onCompleteStep?: (id: string) => void;
+}) {
+  const { step, state, setState, setMessages, goNext, onCompleteStep } = props;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [uploaded, setUploaded] = useState<WizardUploadedFile | null>(null);
+  const [uploadedState, setUploadedState] = useState<TState | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const accept = step.accept ?? "image/*";
+
+  useEffect(() => {
+    // When we arrive at this step (or re-enter it), reset the local confirmation UI.
+    setError(null);
+    setBusy(false);
+    setUploaded(null);
+    setUploadedState(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step.id]);
+
+  const onPick = async (file: File | null) => {
+    setError(null);
+    if (!file) return;
+
+    setBusy(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("Could not read file."));
+        reader.onload = () => resolve(String(reader.result ?? ""));
+        reader.readAsDataURL(file);
+      });
+
+      const payload: WizardUploadedFile = {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl,
+      };
+
+      const nextState = (step.apply as any)(state, payload) as TState;
+      setState(nextState);
+      setUploaded(payload);
+      setUploadedState(nextState);
+
+      setMessages((prev) =>
+        prev.concat([{ id: "m" + prev.length, from: "user", text: "Uploaded photo: " + file.name }])
+      );
+
+      onCompleteStep?.(step.id);
+
+      // IMPORTANT: do NOT auto-advance; show preview + explicit Continue
+      // so the user has visible confirmation.
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {step.helpText ? (
+        <div className="rounded-2xl border border-black/10 bg-white/70 p-4 text-sm opacity-80">
+          {step.helpText}
+        </div>
+      ) : null}
+
+      <div className="rounded-2xl border border-black/10 bg-white p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-sm font-semibold">Upload a photo</div>
+          <button
+            type="button"
+            className="text-sm underline opacity-70 hover:opacity-100 disabled:opacity-60"
+            onClick={() => inputRef.current?.click()}
+            disabled={busy}
+          >
+            Choose photo
+          </button>
+        </div>
+
+        <input
+          ref={inputRef}
+          type="file"
+          accept={accept}
+          onChange={(e) => onPick(e.target.files?.[0] ?? null)}
+          className="sr-only"
+          disabled={busy}
+        />
+
+        <div className="mt-2 text-xs opacity-60">
+          Tip: a clear face photo works best. You can replace it later using Edit.
+        </div>
+
+        {uploaded ? (
+          <div className="mt-4 rounded-2xl border border-black/10 bg-white/70 p-4">
+            <div className="text-sm font-semibold">Photo received</div>
+            <div className="mt-1 text-xs opacity-70">
+              Stored in your schema so Act II can maintain character consistency.
+            </div>
+
+            <div className="mt-3 flex items-start gap-3">
+              <img
+                src={uploaded.dataUrl}
+                alt="Uploaded preview"
+                className="h-24 w-24 rounded-2xl object-cover border border-black/10"
+              />
+              <div className="text-sm">
+                <div className="font-semibold">{uploaded.name}</div>
+                <div className="mt-1 text-xs opacity-70">
+                  {uploaded.type || "image"} • {Math.max(1, Math.round(uploaded.size / 1024))} KB
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <Button onClick={() => goNext(step.nextId, uploadedState ?? state)}>Continue</Button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {error ? <div className="text-sm text-red-600">{error}</div> : null}
+
+      {!step.required ? (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            className="text-sm underline opacity-70 hover:opacity-100 disabled:opacity-60"
+            onClick={() => {
+              setMessages((prev) =>
+                prev.concat([{ id: "m" + prev.length, from: "user", text: "(skipped upload)" }])
+              );
+              onCompleteStep?.(step.id);
+              goNext(step.nextId, state);
+            }}
+            disabled={busy}
+          >
+            Skip for now
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -445,43 +658,53 @@ function TextStep<TState>(props: {
   state: TState;
   setState: (s: TState) => void;
   setMessages: React.Dispatch<React.SetStateAction<WizardMessage[]>>;
-  goNext: (next: string) => void;
+  goNext: (next: string, nextStateOverride?: TState) => void;
   onCompleteStep?: (id: string) => void;
 }) {
   const { step, state, setState, setMessages, goNext, onCompleteStep } = props;
-  const [text, setText] = useState<string>("");
 
-  const disabled = step.required ? text.trim().length === 0 : false;
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setValue("");
+    setError(null);
+  }, [step.id]);
 
   const submit = () => {
-    const value = text.trim();
-    if (step.required && value.length === 0) return;
+    const v = value.trim();
+    if (step.required && v.length === 0) {
+      setError("Please enter a value.");
+      return;
+    }
 
-    setMessages((prev) => prev.concat([{ id: `m${prev.length}`, from: "user", text: value || "(skipped)" }]));
-    const nextState = step.apply(state, value);
+    const nextState = (step.apply as any)(state, v) as TState;
     setState(nextState);
+    setMessages((prev) => prev.concat([{ id: `m${prev.length}`, from: "user", text: v || "(skipped)" }]));
     onCompleteStep?.(step.id);
-    goNext(step.nextId);
+    goNext(step.nextId, nextState);
   };
 
   return (
     <div className="space-y-3">
-      <input
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            submit();
-          }
-        }}
-        placeholder={step.placeholder ?? "Type here..."}
-        className="w-full rounded-2xl border border-black/10 bg-white px-3 py-2 text-base outline-none"
-      />
+      <div className="flex flex-col gap-2">
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          placeholder={step.placeholder ?? "Type here..."}
+          className="w-full rounded-2xl border border-black/10 bg-white px-3 py-3 text-base outline-none"
+        />
+        {error ? <div className="text-sm text-red-600">{error}</div> : null}
+      </div>
+
       <div className="flex justify-end">
-        <Button onClick={submit} disabled={disabled}>
-          Continue
-        </Button>
+        <Button onClick={submit}>Continue</Button>
       </div>
     </div>
   );

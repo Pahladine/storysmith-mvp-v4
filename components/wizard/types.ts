@@ -1,4 +1,4 @@
-export type WizardPersona = {
+﻿export type WizardPersona = {
   name: string;
   title?: string;
   subtitle?: string;
@@ -11,7 +11,14 @@ export type WizardChoice<TValue = string> = {
   hint?: string;
 };
 
-export type WizardStepKind = "say" | "choice" | "text";
+export type WizardUploadedFile = {
+  name: string;
+  type: string;
+  size: number;
+  dataUrl: string;
+};
+
+export type WizardStepKind = "say" | "choice" | "text" | "upload";
 
 export type WizardStep<TState = any> =
   | {
@@ -40,6 +47,16 @@ export type WizardStep<TState = any> =
       placeholder?: string;
       required?: boolean;
       apply: (state: TState, text: string) => TState;
+      nextId: string;
+    }
+  | {
+      id: string;
+      kind: "upload";
+      host: string;
+      accept?: string;
+      helpText?: string;
+      required?: boolean;
+      apply: (state: TState, file: WizardUploadedFile) => TState;
       nextId: string;
     };
 
