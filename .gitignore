@@ -63,3 +63,5 @@ patch_*.ps1
 
 # Local reference material (keep on disk, not in git)
 Old Prompts/
+
+_handoff/
