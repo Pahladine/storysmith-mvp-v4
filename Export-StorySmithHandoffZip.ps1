@@ -1,4 +1,4 @@
-<#
+﻿<#
 Export-StorySmithHandoffZip.ps1
 Creates a curated zip snapshot of a Next.js/TS repo for AI handoff:
 - Includes: pages/, components/, src/, lib/, styles/, config files, docs
@@ -57,8 +57,8 @@ function Get-Bucket {
   if ($p -like "lib\*") { return "SRC_LIB" }
   if ($p -like "styles\*") { return "STYLES" }
   if ($p -like "public\*") { return "PUBLIC" }
-
-  # Config / root files
+  if ($p -like "acts\*") { return "ACTS" }
+  if ($p -like "tools\*") { return "TOOLS" }# Config / root files
   $leaf = Split-Path $p -Leaf
   $rootConfig = @(
     "package.json","package-lock.json","yarn.lock","pnpm-lock.yaml",
@@ -90,7 +90,7 @@ $ExcludedDirNames = @(
 )
 
 # --- Included top folders ---
-$IncludeTopFolders = @("pages","components","src","lib","styles")
+$IncludeTopFolders = @("pages","components","src","lib","styles","acts","tools")
 if ($IncludePublic) { $IncludeTopFolders += "public" }
 
 # --- Always-include root-ish files by name ---
@@ -103,8 +103,10 @@ $IncludeRootFiles = @(
   ".eslintrc",".eslintrc.js",".eslintrc.cjs",".eslintrc.json",
   ".prettierrc",".prettierrc.js",".prettierrc.json",
   "vercel.json",
-  ".env.example",".env.local.example",".env.template",
-  "README.md"
+  ".env.example",".env.local.example",".env.template",  "README.md",
+  ".gitignore",
+  "next-env.d.ts",
+  "Export-StorySmithHandoffZip.ps1"
 )
 
 # --- Excluded file extensions (large/binary/noisy) ---
@@ -224,3 +226,4 @@ Write-Host "ZIP:  $zipPath"
 Write-Host "CSV:  $csvPath"
 Write-Host "TXT:  $txtPath"
 Write-Host "Files included: $($records.Count)"
+

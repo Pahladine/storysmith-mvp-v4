@@ -1,0 +1,30 @@
+.Export-StorySmithHandoffZip.ps1
+
+
+
+
+STORYSMITH_V4_HANDOFF (golden zip)
+
+REPO_ID
+- Branch: mvp-wizard-v1
+- Commit: RUN `git rev-parse --short HEAD` AND PASTE HERE
+
+ARTIFACT
+- Attached: storysmith_handoff_YYYYMMDD_HHMMSS.zip (golden export)
+- Ground truth is ONLY what’s in the zip + any logs I paste. No assumptions.
+
+CURRENT OBJECTIVE (1 sentence)
+- <WHAT WE ARE DOING NEXT>
+
+CURRENT BLOCKER (if any)
+- <ERROR TEXT OR "NONE">
+
+REPRO (3 steps max)
+1) <STEP>
+2) <STEP>
+3) <STEP>
+
+HARD RULES FOR RECEIVING AI
+1) Start with a Known vs Unknown list (no guesses).
+2) Every claim must cite a file path from the zip OR ask me to verify via a command.
+3) Propose a 3–7 step plan, then give 1 patch at a time.
