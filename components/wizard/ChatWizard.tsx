@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../ui/Button";
 import type { WizardMessage, WizardScript, WizardStep, WizardChoice, WizardUploadedFile } from "./types";
 
@@ -625,8 +625,9 @@ function UploadStep<TState>(props: {
   setMessages: React.Dispatch<React.SetStateAction<WizardMessage[]>>;
   goNext: (next: string, nextStateOverride?: TState) => void;
   onCompleteStep?: (id: string) => void;
+  onUploadReceived?: () => void;
 }) {
-  const { step, state, setState, setMessages, goNext, onCompleteStep } = props;
+  const { step, state, setState, setMessages, goNext, onCompleteStep, onUploadReceived } = props;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploaded, setUploaded] = useState<WizardUploadedFile | null>(null);
@@ -690,7 +691,8 @@ function UploadStep<TState>(props: {
 
     
     onUploadReceived?.();
-const onKeyDown = (e: KeyboardEvent) => {
+
+    const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Enter") return;
 
       // Do not hijack Enter if user is typing in a form control
@@ -800,8 +802,9 @@ function TextStep<TState>(props: {
   setMessages: React.Dispatch<React.SetStateAction<WizardMessage[]>>;
   goNext: (next: string, nextStateOverride?: TState) => void;
   onCompleteStep?: (id: string) => void;
+  onUploadReceived?: () => void;
 }) {
-  const { step, state, setState, setMessages, goNext, onCompleteStep } = props;
+  const { step, state, setState, setMessages, goNext, onCompleteStep, onUploadReceived } = props;
 
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
