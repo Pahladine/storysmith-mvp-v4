@@ -27,6 +27,11 @@ export function ChatWizard<TState>(props: Props<TState>) {
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [schemaOpen, setSchemaOpen] = useState(false);
 
+  // [SS UX] Host typewriter state (safe, self-contained)
+  const [hostTyped, setHostTyped] = useState("");
+  const [hostIsTyping, setHostIsTyping] = useState(false);
+  const hostFullRef = useRef<string>("");
+
   const stepsById = useMemo(() => {
     const map = new Map<string, WizardStep<TState>>();
     for (const s of script.steps) map.set(s.id, s as any);
@@ -110,7 +115,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
     return (
       <div className={className}>
         <div className="mx-auto w-full max-w-3xl px-4 py-10">
-          <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-6 shadow-sm shadow-indigo-100/50">
             <div className="text-lg font-semibold">Wizard Error</div>
             <div className="mt-2 text-sm opacity-70">
               Could not find step <span className="font-mono">{stepId}</span>.
@@ -153,7 +158,96 @@ export function ChatWizard<TState>(props: Props<TState>) {
     goNext(step.nextId, state);
   };
 
-  return (
+useEffect(() => {
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key !== "Enter") return;
+
+    // Only auto-advance on "say" steps (Continue screens)
+    if (step.kind !== "say") return;
+
+    // Do not hijack Enter if user is typing in a form control
+    const t = e.target as HTMLElement | null;
+    const tag = t?.tagName?.toLowerCase();
+    if (tag === "input" || tag === "textarea" || (t as any)?.isContentEditable) return;
+
+    e.preventDefault();
+    handleSayContinue();
+  };
+
+  window.addEventListener("keydown", onKeyDown);
+  return () => window.removeEventListener("keydown", onKeyDown);
+}, [step.kind, stepId, state]);
+
+
+    // [SS UX] Host typewriter (all host lines)
+  useEffect(() => {
+    const full = String((step as any)?.host ?? "");
+    hostFullRef.current = full;
+
+    // Reset for every step transition / host change
+    setHostTyped("");
+
+    if (!full.trim()) {
+      setHostIsTyping(false);
+      return;
+    }
+
+    // Respect reduced motion
+    const preferReduced =
+      typeof window !== "undefined" &&
+      !!(window as any).matchMedia &&
+      (window as any).matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (preferReduced) {
+      setHostTyped(full);
+      setHostIsTyping(false);
+      return;
+    }
+
+    let cancelled = false;
+    let i = 0;
+    let isTyping = true;
+
+    setHostIsTyping(true);
+
+    const tick = () => {
+      if (cancelled) return;
+
+      i = Math.min(full.length, i + 1);
+      setHostTyped(full.slice(0, i));
+
+      if (i >= full.length) {
+        isTyping = false;
+        setHostIsTyping(false);
+        return;
+      }
+
+      window.setTimeout(tick, 12);
+    };
+
+    // Small initial delay feels more “alive”
+    window.setTimeout(tick, 60);
+
+    // Space finishes the line instantly (and prevents page scroll) while typing
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isSpace = e.key === " " || e.code === "Space" || e.key === "Spacebar";
+      if (!isSpace) return;
+      if (!isTyping) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      setHostTyped(hostFullRef.current);
+      isTyping = false;
+      setHostIsTyping(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [stepId, (step as any)?.host]);return (
     <div className={className}>
       <div className="mx-auto w-full max-w-6xl px-4 py-6">
         {/* Ride Marquee */}
@@ -202,12 +296,20 @@ export function ChatWizard<TState>(props: Props<TState>) {
         <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
           {/* Stage */}
           <div>
-            <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
+            <div className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-6 shadow-sm shadow-indigo-100/50">
               <div className="mb-3 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold tracking-wide text-indigo-700">
                 Now boarding…
               </div>
               <div className="text-xs uppercase tracking-wide opacity-60">{script.persona.name} says</div>
-              <div className="mt-2 text-lg md:text-xl leading-relaxed">{(step as any).host}</div>
+              <div className="mt-2 text-lg md:text-xl leading-relaxed">
+  <span>{hostIsTyping ? hostTyped : String((step as any)?.host ?? "")}</span>
+  {hostIsTyping ? (
+    <span
+      aria-hidden="true"
+      className={"inline-block align-baseline ml-1 w-[2px] h-[1.1em] bg-stone-700/70 " + (hostIsTyping ? "animate-pulse" : "opacity-0")}
+    />
+  ) : null}
+</div>
               <div className="mt-3 text-sm opacity-60">You can change choices later.</div>
 
               <div className="mt-4">
@@ -249,10 +351,25 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
             <div className="mt-4 rounded-3xl border border-black/10 bg-white/70 p-5 shadow-sm">
               {step.kind === "say" ? (
-                <div className="flex justify-end">
-                  <Button onClick={handleSayContinue}>Continue</Button>
-                </div>
-              ) : null}
+  <div
+    className="flex justify-end"
+    tabIndex={0}
+    onKeyDown={(e) => {
+      if (e.key !== "Enter") return;
+
+      // Do not hijack Enter if user is focused in a form control
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || (t as any)?.isContentEditable) return;
+
+      e.preventDefault();
+      handleSayContinue();
+    }}
+  >
+    <Button onClick={handleSayContinue}>Continue</Button>
+  </div>
+) : null}
+
 
               {step.kind === "choice" ? (
                 <div className="space-y-3">
@@ -306,6 +423,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
                   setMessages={setMessages}
                   goNext={goNext}
                   onCompleteStep={markComplete}
+                onUploadReceived={() => setSchemaOpen(true)}
                 />
               ) : null}
 
@@ -567,6 +685,28 @@ function UploadStep<TState>(props: {
     }
   };
 
+  useEffect(() => {
+    if (!uploaded) return;
+
+    
+    onUploadReceived?.();
+const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Enter") return;
+
+      // Do not hijack Enter if user is typing in a form control
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || (t as any)?.isContentEditable) return;
+
+      e.preventDefault();
+      goNext(step.nextId, uploadedState ?? state);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [uploaded, step.nextId, uploadedState, state, goNext]);
+
+
   return (
     <div className="space-y-3">
       {step.helpText ? (
@@ -709,3 +849,10 @@ function TextStep<TState>(props: {
     </div>
   );
 }
+
+
+
+
+
+
+

@@ -456,7 +456,25 @@ export default function BuildPage() {
                       onChange={(e) => updateScene({ ...scene, text: e.target.value })}
                     />
 
-                    <div className="flex justify-between items-start mt-3">
+                    
+
+                    <details className="mt-4 rounded-xl border border-stone-200 bg-white/60 p-4">
+                      <summary className="cursor-pointer select-none text-sm font-semibold text-stone-700">
+                        Illustration prompt (Act II output)
+                      </summary>
+                      <div className="mt-3">
+                        {scene.illustrationPrompt ? (
+                          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-stone-200 bg-stone-50 p-3 text-xs text-stone-700">
+{scene.illustrationPrompt}
+                          </pre>
+                        ) : (
+                          <div className="text-xs text-stone-500">
+                            No illustration prompt found on this scene.
+                          </div>
+                        )}
+                      </div>
+                    </details>
+<div className="flex justify-between items-start mt-3">
                       <p className="text-xs text-stone-500 italic max-w-md">
                         The Scene Weaver will keep your hero and setting the same, but smooth the words.
                       </p>

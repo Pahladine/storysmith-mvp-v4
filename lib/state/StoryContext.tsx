@@ -162,6 +162,8 @@ export const StoryProvider = ({ children }: { children: ReactNode }) => {
       const nextState: StoryState = {
         ...prev,
         hero,
+      outline: null,
+      scenes: [],
       };
 
       // 1. Sync HeroProfile change to CharacterBlock in SessionState
@@ -184,6 +186,8 @@ export const StoryProvider = ({ children }: { children: ReactNode }) => {
       const nextState: StoryState = {
         ...prev,
         reader,
+      outline: null,
+      scenes: [],
       };
 
       // 1. Sync ReaderProfile change to CharacterBlock in SessionState
@@ -205,6 +209,8 @@ export const StoryProvider = ({ children }: { children: ReactNode }) => {
     setState((prev) => ({
       ...prev,
       settings,
+      outline: null,
+      scenes: [],
       // NOTE: Settings currently do not map to SessionState fields, so no sync logic here yet.
     }));
   };
@@ -314,3 +320,4 @@ export const useStoryState = () => {
   }
   return context;
 };
+

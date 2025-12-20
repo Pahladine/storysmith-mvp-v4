@@ -1,4 +1,4 @@
-.Export-StorySmithHandoffZip.ps1
+.\Export-StorySmithHandoffZip.ps1
 
 
 

@@ -28,6 +28,13 @@ function extractResponseText(resp: any): string {
   return out.join("\n").trim();
 }
 
+function isReasoningModel(model: string): boolean {
+  const m = String(model || "").toLowerCase().trim();
+  // Reasoning-style model families often reject temperature/top_p in the Responses API.
+  // We treat any "o*" model (o1/o3/o4/...) and "gpt-5*" as reasoning here.
+  return m.startsWith("o") || m.startsWith("gpt-5");
+}
+
 async function openaiJson<T>(args: {
   model: string;
   temperature: number;
@@ -43,7 +50,7 @@ async function openaiJson<T>(args: {
   const body = {
     model: args.model,
     input: args.input,
-    temperature: args.temperature,
+    ...(isReasoningModel(args.model) ? {} : { temperature: args.temperature }),
     max_output_tokens: args.maxOutputTokens,
     text: {
       format: {
@@ -84,7 +91,7 @@ async function openaiJson<T>(args: {
         ...args.input,
         { role: "system" as const, content: "Return ONLY valid JSON. No markdown. No extra text." },
       ],
-      temperature: args.temperature,
+    ...(isReasoningModel(args.model) ? {} : { temperature: args.temperature }),
       max_output_tokens: args.maxOutputTokens,
       text: { format: { type: "json_object" } },
     };
@@ -107,7 +114,39 @@ async function openaiJson<T>(args: {
 
     const outputText2 = extractResponseText(envelope2);
     if (!outputText2) throw new Error("OpenAI response missing output text (fallback).");
-    return JSON.parse(outputText2) as T;
+    try {
+      return JSON.parse(outputText2) as T;
+    } catch (e) {
+      // Likely truncated/incomplete JSON; retry once with a larger output budget.
+      const res3 = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY || ""}`,
+        },
+        body: JSON.stringify({
+          model: args.model,
+          input: args.input,
+          ...(isReasoningModel(args.model) ? {} : { temperature: args.temperature }),
+          max_output_tokens: Math.max(args.maxOutputTokens, 3500),
+          text: { format: { type: "json_object" } },
+        }),
+      });
+
+      const rawText3 = await res3.text();
+      if (!res3.ok) throw new Error(`OpenAI error ${res3.status}: ${rawText3.slice(0, 800)}`);
+
+      let envelope3: any;
+      try {
+        envelope3 = JSON.parse(rawText3);
+      } catch {
+        throw new Error(`OpenAI returned non-JSON envelope (retry): ${rawText3.slice(0, 800)}`);
+      }
+
+      const outputText3 = extractResponseText(envelope3);
+      if (!outputText3) throw new Error("OpenAI response missing output text (retry).");
+      return JSON.parse(outputText3) as T;
+    }
   }
 }
 
@@ -168,7 +207,7 @@ async function createOpenAIOutline(
   const data = await openaiJson<{ scenes: Array<{ index: number; title: string; summary: string }> }>({
     model,
     temperature: Number.isFinite(temperature) ? temperature : 0.7,
-    maxOutputTokens: 900,
+    maxOutputTokens: 2200,
     schemaName: "story_outline",
     schema,
     input: [
@@ -320,3 +359,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 }
+
+

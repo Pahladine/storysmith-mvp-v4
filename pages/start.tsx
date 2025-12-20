@@ -11,8 +11,7 @@ import { useStoryState } from "../lib/state/StoryContext";
  */
 export default function StartPage() {
   const router = useRouter();
-    const { setHero, setReader, setSettings } = useStoryState();
-
+  const { setHero, setReader, setSettings, resetStory } = useStoryState();
   const initial: Act1State = {
     childName: "",
     readerName: "",
@@ -26,15 +25,41 @@ export default function StartPage() {
 
   return (
     <Layout>
+      <div className="mx-auto w-full max-w-6xl px-4 pt-4">
+        <div className="flex justify-end">
+          <button
+            type="button"
+            className="text-sm underline opacity-70 hover:opacity-100"
+            onClick={() => {
+              // Hard reset: clear persisted session + reset in-memory state, then force full reload.
+              try {
+                sessionStorage.removeItem("storysmith_state");
+              } catch {
+                // ignore
+              }
+              resetStory();
+              if (typeof window !== "undefined") {
+                window.location.assign("/start");
+              }
+            }}
+            title="Clears the current story (sessionStorage) and restarts the wizard"
+          >
+            Start over (clear story)
+          </button>
+        </div>
+      </div>
+
       <ChatWizard
         script={act1Script}
         initialState={initial}
         onComplete={(s) => {
           // Map wizard state -> StoryContext (keep contracts stable)
           setHero({
-            childName: s.childName,
-            companionName: s.companionName || "",
-          } as any);
+  childName: s.childName,
+  companionName: s.companionName || "",
+  heroPhotoDataUrl: s.heroPhotoDataUrl,
+} as any);
+
 
           setReader({
             childName: s.readerName,
@@ -54,3 +79,4 @@ export default function StartPage() {
     </Layout>
   );
 }
+
