@@ -224,8 +224,7 @@ useEffect(() => {
 
       window.setTimeout(tick, 12);
     };
-
-    // Small initial delay feels more â€œaliveâ€
+    // Small initial delay feels more alive
     window.setTimeout(tick, 60);
 
     // Space finishes the line instantly (and prevents page scroll) while typing
@@ -264,7 +263,7 @@ useEffect(() => {
         <div className="mb-4 rounded-3xl border border-black/10 bg-white/70 p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-xs uppercase tracking-wide opacity-70">Act I â€¢ Forge the Hero</div>
+              <div className="text-xs uppercase tracking-wide opacity-70">Act I - Forge the Hero</div>
               <div className="mt-1 text-2xl font-semibold">{script.persona.name}</div>
               {script.persona.title ? <div className="mt-1 text-sm opacity-80">{script.persona.title}</div> : null}
               {script.persona.subtitle ? <div className="mt-2 text-sm opacity-90">{script.persona.subtitle}</div> : null}
@@ -298,8 +297,7 @@ useEffect(() => {
           <div>
             <div className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-6 shadow-sm shadow-indigo-100/50">
               <div className="mb-3 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold tracking-wide text-indigo-700">
-                Now boardingâ€¦
-              </div>
+                Now boarding...</div>
               <div className="text-xs uppercase tracking-wide opacity-60">{script.persona.name} says</div>
               <div className="mt-2 text-lg md:text-xl leading-relaxed">
   <span>{hostIsTyping ? hostTyped : String((step as any)?.host ?? "")}</span>
@@ -315,12 +313,12 @@ useEffect(() => {
                 <div className="text-xs uppercase tracking-wide opacity-60">What happens next</div>
                 <div className="mt-1 opacity-80">
                   {step.kind === "choice"
-                    ? "Pick one option below — I’ll stamp your Park Pass and we’ll continue."
+                    ? "Pick one option below â€” Iâ€™ll stamp your Park Pass and weâ€™ll continue."
                     : step.kind === "text"
                     ? "Type your answer and press Enter (or click Continue)."
                     : step.kind === "upload"
-                    ? "Upload a photo — you’ll see an “Added” badge and preview. Then press Enter or Continue."
-                    : "Click Continue when you’re ready."}
+                    ? "Upload a photo â€” youâ€™ll see an â€œAddedâ€ badge and preview. Then press Enter or Continue."
+                    : "Click Continue when youâ€™re ready."}
                 </div>
               </div>
 
@@ -352,7 +350,7 @@ useEffect(() => {
                             ))}
                           </ul>
                         ) : (
-                          <div className="opacity-80">A short phrase is perfect. You can skip if itâ€™s optional.</div>
+                          <div className="opacity-80">A short phrase is perfect. You can skip if itÃ¢â‚¬â„¢s optional.</div>
                         )}
                       </>
                     ) : null}
@@ -461,8 +459,7 @@ useEffect(() => {
                       <div className="max-w-[90%]">
                         {m.from === "host" && (idx === 0 || messages[idx - 1]?.from === "user") ? (
                           <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-500/80">
-                            Now boardingâ€¦
-                          </div>
+                            Now boarding...</div>
                         ) : null}
 
                         <div
@@ -529,7 +526,7 @@ useEffect(() => {
                   </button>
                 </div>
                 <div className="mt-1 text-base font-semibold">
-                  {(((state as any).childName || "") as string).trim() || "â€”"}
+                  {(((state as any).childName || "") as string).trim() || "-"}
                 </div>
               </div>
 
@@ -546,7 +543,7 @@ useEffect(() => {
                   </button>
                 </div>
                 <div className="mt-1 text-base font-semibold">
-                  {hasText((state as any).heroPhotoDataUrl) ? "Added" : "â€”"}
+                  {hasText((state as any).heroPhotoDataUrl) ? "Added" : "-"}
                 </div>
                 {hasText((state as any).heroPhotoDataUrl) ? (
                   <img
@@ -570,7 +567,7 @@ useEffect(() => {
                   </button>
                 </div>
                 <div className="mt-1 text-base font-semibold">
-                  {(((state as any).companionName || "") as string).trim() || "â€”"}
+                  {(((state as any).companionName || "") as string).trim() || "-"}
                 </div>
               </div>
 
@@ -586,7 +583,7 @@ useEffect(() => {
                     Edit
                   </button>
                 </div>
-                <div className="mt-1 text-base font-semibold">{String((state as any).vibe ?? "â€”")}</div>
+                <div className="mt-1 text-base font-semibold">{String((state as any).vibe ?? "-")}</div>
               </div>
 
               <div className="rounded-2xl border border-black/10 bg-white p-4">
@@ -601,7 +598,7 @@ useEffect(() => {
                     Edit
                   </button>
                 </div>
-                <div className="mt-1 text-base font-semibold">{String((state as any).place ?? "â€”")}</div>
+                <div className="mt-1 text-base font-semibold">{String((state as any).place ?? "-")}</div>
               </div>
 
               <div className="rounded-2xl border border-black/10 bg-white p-4">
@@ -616,11 +613,11 @@ useEffect(() => {
                     Edit
                   </button>
                 </div>
-                <div className="mt-1 text-base font-semibold">{String((state as any).length ?? "â€”")}</div>
+                <div className="mt-1 text-base font-semibold">{String((state as any).length ?? "-")}</div>
               </div>
 
               <div className="pt-2 text-xs opacity-60">
-                Next: weâ€™ll use this â€œpassâ€ to weave your outline and chapters in Act II.
+                Next: we'll use this pass to weave your outline and chapters in Act II.
               </div>
             </div>
           </div>
@@ -771,7 +768,7 @@ function UploadStep<TState>(props: {
               <div className="text-sm">
                 <div className="font-semibold">{uploaded.name}</div>
                 <div className="mt-1 text-xs opacity-70">
-                  {uploaded.type || "image"} â€¢ {Math.max(1, Math.round(uploaded.size / 1024))} KB
+                  {uploaded.type || "image"} - {Math.max(1, Math.round(uploaded.size / 1024))} KB
                 </div>
               </div>
             </div>
