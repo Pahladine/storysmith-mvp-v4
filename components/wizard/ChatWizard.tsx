@@ -114,6 +114,120 @@ export function ChatWizard<TState>(props: Props<TState>) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepId]);
 
+  // ============================
+  // Hooks MUST be declared before any early return (rules-of-hooks).
+  // Gate behavior inside effects instead of gating hook calls.
+  // ============================
+
+  const hostFull = String((step as any)?.host ?? "");
+
+  useEffect(() => {
+    // Only listen on "say" steps (Continue screens)
+    if (!step || step.kind !== "say") return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Enter") return;
+
+      // Do not hijack Enter if user is typing in a form control
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || (t as any)?.isContentEditable) return;
+
+      e.preventDefault();
+      // Inline continue to avoid deps issues
+      markComplete(stepId);
+      goNext((step as any).nextId, state);
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+
+  return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [stepId, step?.kind, (step as any)?.nextId, state]);
+  // [SS UX] Auto-scroll while the host is typing (prevents "typing off-screen")
+  useEffect(() => {
+    if (!hostIsTyping) return;
+
+    const id = window.requestAnimationFrame(() => {
+      try {
+        const top =
+          document.documentElement?.scrollHeight ??
+          document.body?.scrollHeight ??
+          0;
+
+        window.scrollTo({ top, behavior: "smooth" });
+      } catch {
+        window.scrollTo(0, document.documentElement?.scrollHeight ?? 0);
+      }
+    });
+
+  return () => window.cancelAnimationFrame(id);
+  }, [stepId, hostTyped, hostIsTyping]);
+// [SS UX] Host typewriter (all host lines)
+  useEffect(() => {
+    hostFullRef.current = hostFull;
+
+    // Reset for every step transition / host change
+    setHostTyped("");
+
+    if (!hostFull.trim()) {
+      setHostIsTyping(false);
+      return;
+    }
+
+    const preferReduced =
+      typeof window !== "undefined" &&
+      !!(window as any).matchMedia &&
+      (window as any).matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (preferReduced) {
+      setHostTyped(hostFull);
+      setHostIsTyping(false);
+      return;
+    }
+
+    let cancelled = false;
+    let i = 0;
+    let isTyping = true;
+
+    setHostIsTyping(true);
+
+    const tick = () => {
+      if (cancelled) return;
+
+      i = Math.min(hostFull.length, i + 1);
+      setHostTyped(hostFull.slice(0, i));
+
+      if (i >= hostFull.length) {
+        isTyping = false;
+        setHostIsTyping(false);
+        return;
+      }
+
+      window.setTimeout(tick, 12);
+    };
+
+    window.setTimeout(tick, 60);
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isSpace = e.key === " " || e.code === "Space" || e.key === "Spacebar";
+      if (!isSpace) return;
+      if (!isTyping) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      setHostTyped(hostFullRef.current);
+      isTyping = false;
+      setHostIsTyping(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+
+  return () => {
+      cancelled = true;
+      window.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [stepId, hostFull]);
   if (!step) {
     return (
       <div className={className}>
@@ -161,113 +275,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
     goNext(step.nextId, state);
   };
 
-useEffect(() => {
-  // Only listen on "say" steps (Continue screens)
-  if (step.kind !== "say") return;
-
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key !== "Enter") return;
-
-    // Do not hijack Enter if user is typing in a form control
-    const t = e.target as HTMLElement | null;
-    const tag = t?.tagName?.toLowerCase();
-    if (tag === "input" || tag === "textarea" || (t as any)?.isContentEditable) return;
-
-    e.preventDefault();
-    handleSayContinue();
-  };
-
-  window.addEventListener("keydown", onKeyDown, true);
-  return () => window.removeEventListener("keydown", onKeyDown, true);
-}, [stepId, step.kind]);
-  // [SS UX] Auto-scroll while the host is typing (prevents "typing off-screen")
-  useEffect(() => {
-    if (!hostIsTyping) return;
-
-    const id = window.requestAnimationFrame(() => {
-      try {
-        const top =
-          document.documentElement?.scrollHeight ??
-          document.body?.scrollHeight ??
-          0;
-
-        window.scrollTo({ top, behavior: "smooth" });
-      } catch {
-        // Fallback: no smooth scroll
-        window.scrollTo(0, document.documentElement?.scrollHeight ?? 0);
-      }
-    });
-
-    return () => window.cancelAnimationFrame(id);
-  }, [stepId, hostTyped, hostIsTyping]);
-  // [SS UX] Host typewriter (all host lines)
-  useEffect(() => {
-    const full = String((step as any)?.host ?? "");
-    hostFullRef.current = full;
-
-    // Reset for every step transition / host change
-    setHostTyped("");
-
-    if (!full.trim()) {
-      setHostIsTyping(false);
-      return;
-    }
-
-    // Respect reduced motion
-    const preferReduced =
-      typeof window !== "undefined" &&
-      !!(window as any).matchMedia &&
-      (window as any).matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    if (preferReduced) {
-      setHostTyped(full);
-      setHostIsTyping(false);
-      return;
-    }
-
-    let cancelled = false;
-    let i = 0;
-    let isTyping = true;
-
-    setHostIsTyping(true);
-
-    const tick = () => {
-      if (cancelled) return;
-
-      i = Math.min(full.length, i + 1);
-      setHostTyped(full.slice(0, i));
-
-      if (i >= full.length) {
-        isTyping = false;
-        setHostIsTyping(false);
-        return;
-      }
-
-      window.setTimeout(tick, 12);
-    };
-    // Small initial delay feels more alive
-    window.setTimeout(tick, 60);
-
-    // Space finishes the line instantly (and prevents page scroll) while typing
-    const onKeyDown = (e: KeyboardEvent) => {
-      const isSpace = e.key === " " || e.code === "Space" || e.key === "Spacebar";
-      if (!isSpace) return;
-      if (!isTyping) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      setHostTyped(hostFullRef.current);
-      isTyping = false;
-      setHostIsTyping(false);
-    };
-
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("keydown", onKeyDown, true);
-    };
-  }, [stepId, (step as any)?.host]);return (
+  return (
     <div className={className}>
       <div className="mx-auto w-full max-w-6xl px-4 py-6">
         {/* Ride Marquee */}
@@ -433,7 +441,7 @@ useEffect(() => {
               ) : null}
 
               {step.kind === "upload" ? (
-                <UploadStep
+                <UploadStep key={step.id}
                   step={step}
                   state={state}
                   setState={setState}
@@ -445,7 +453,7 @@ useEffect(() => {
               ) : null}
 
               {step.kind === "text" ? (
-                <TextStep
+                <TextStep key={step.id}
                   step={step}
                   state={state}
                   setState={setState}
@@ -703,16 +711,6 @@ function UploadStep<TState>(props: {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const accept = step.accept ?? "image/*";
-
-  useEffect(() => {
-    // When we arrive at this step (or re-enter it), reset the local confirmation UI.
-    setError(null);
-    setBusy(false);
-    setUploaded(null);
-    setUploadedState(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step.id]);
-
   const onPick = async (file: File | null) => {
     setError(null);
     if (!file) return;
@@ -773,9 +771,9 @@ function UploadStep<TState>(props: {
     };
 
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [uploaded, step.nextId, uploadedState, state, goNext]);
 
+  return () => window.removeEventListener("keydown", onKeyDown);
+  }, [uploaded, step.nextId, uploadedState, state, goNext]);
 
   return (
     <div className="space-y-3">
@@ -883,12 +881,6 @@ function TextStep<TState>(props: {
 
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setValue("");
-    setError(null);
-  }, [step.id]);
-
   const submit = () => {
     const v = value.trim();
     if (step.required && v.length === 0) {
@@ -927,6 +919,10 @@ function TextStep<TState>(props: {
     </div>
   );
 }
+
+
+
+
 
 
 
