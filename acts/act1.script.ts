@@ -1,4 +1,4 @@
-﻿import type { WizardScript, WizardChoice, WizardUploadedFile } from "../components/wizard/types";
+import type { WizardScript, WizardChoice, WizardUploadedFile } from "../components/wizard/types";
 
 export type Act1State = {
   heroOrigin?: "real" | "new" | "surprise";
@@ -53,7 +53,7 @@ export const act1Script: WizardScript<Act1State> = {
       id: "heroPhoto",
       kind: "upload",
       host:
-        "If this hero is a real person, you can upload a photo.\n\nThis helps StorySmith keep the character’s look consistent across illustrations. (Optional for now.)",
+        "If this hero is a real person, you can upload a photo.\n\nThis helps StorySmith keep your hero recognizable from page to page. (Optional for now.)",
       accept: "image/*",
       helpText:
         "Use a clear, well-lit face photo. Avoid heavy filters. If you don’t have it handy, you can skip and add it later.",

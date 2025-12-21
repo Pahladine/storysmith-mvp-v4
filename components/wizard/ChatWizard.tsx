@@ -35,7 +35,6 @@ export function ChatWizard<TState>(props: Props<TState>) {
   const [hostTyped, setHostTyped] = useState("");
   const [hostIsTyping, setHostIsTyping] = useState(false);
   const hostFullRef = useRef<string>("");
-
   const stepsById = useMemo(() => {
     const map = new Map<string, WizardStep<TState>>();
     for (const s of script.steps) map.set(s.id, s as any);
@@ -163,11 +162,11 @@ export function ChatWizard<TState>(props: Props<TState>) {
   };
 
 useEffect(() => {
+  // Only listen on "say" steps (Continue screens)
+  if (step.kind !== "say") return;
+
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key !== "Enter") return;
-
-    // Only auto-advance on "say" steps (Continue screens)
-    if (step.kind !== "say") return;
 
     // Do not hijack Enter if user is typing in a form control
     const t = e.target as HTMLElement | null;
@@ -178,12 +177,30 @@ useEffect(() => {
     handleSayContinue();
   };
 
-  window.addEventListener("keydown", onKeyDown);
-  return () => window.removeEventListener("keydown", onKeyDown);
-}, [step.kind, stepId, state]);
+  window.addEventListener("keydown", onKeyDown, true);
+  return () => window.removeEventListener("keydown", onKeyDown, true);
+}, [stepId, step.kind]);
+  // [SS UX] Auto-scroll while the host is typing (prevents "typing off-screen")
+  useEffect(() => {
+    if (!hostIsTyping) return;
 
+    const id = window.requestAnimationFrame(() => {
+      try {
+        const top =
+          document.documentElement?.scrollHeight ??
+          document.body?.scrollHeight ??
+          0;
 
-    // [SS UX] Host typewriter (all host lines)
+        window.scrollTo({ top, behavior: "smooth" });
+      } catch {
+        // Fallback: no smooth scroll
+        window.scrollTo(0, document.documentElement?.scrollHeight ?? 0);
+      }
+    });
+
+    return () => window.cancelAnimationFrame(id);
+  }, [stepId, hostTyped, hostIsTyping]);
+  // [SS UX] Host typewriter (all host lines)
   useEffect(() => {
     const full = String((step as any)?.host ?? "");
     hostFullRef.current = full;
@@ -365,21 +382,7 @@ useEffect(() => {
 
             <div className="mt-4 rounded-3xl border border-black/10 bg-white/70 p-5 shadow-sm">
               {step.kind === "say" ? (
-  <div
-    className="flex justify-end"
-    tabIndex={0}
-    onKeyDown={(e) => {
-      if (e.key !== "Enter") return;
-
-      // Do not hijack Enter if user is focused in a form control
-      const t = e.target as HTMLElement | null;
-      const tag = t?.tagName?.toLowerCase();
-      if (tag === "input" || tag === "textarea" || (t as any)?.isContentEditable) return;
-
-      e.preventDefault();
-      handleSayContinue();
-    }}
-  >
+  <div className="flex justify-end">
     <Button onClick={handleSayContinue}>Continue</Button>
   </div>
 ) : null}
@@ -452,7 +455,6 @@ useEffect(() => {
                 />
               ) : null}
             </div>
-
             {/* Transcript Drawer */}
             {transcriptOpen ? (
               <div className="mt-4 rounded-3xl border border-black/10 bg-white/70 p-5 shadow-sm">
@@ -737,7 +739,7 @@ function UploadStep<TState>(props: {
       setUploadedState(nextState);
 
       setMessages((prev) =>
-        prev.concat([{ id: "m" + prev.length, from: "user", text: "Uploaded photo: " + file.name }])
+        prev.concat([{ id: "m" + prev.length, from: "user", text: "Photo added: " + file.name }])
       );
 
       onCompleteStep?.(step.id);
@@ -785,7 +787,14 @@ function UploadStep<TState>(props: {
 
       <div className="rounded-2xl border border-black/10 bg-white p-4">
         <div className="flex items-center justify-between gap-3">
-          <div className="text-sm font-semibold">Upload a photo</div>
+          <div className="text-sm font-semibold flex items-center gap-2">
+  <span>Upload a photo</span>
+  {uploaded ? (
+    <span className="text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
+      Added
+    </span>
+  ) : null}
+</div>
           <button
             type="button"
             className="text-sm underline opacity-70 hover:opacity-100 disabled:opacity-60"
@@ -813,13 +822,13 @@ function UploadStep<TState>(props: {
           <div className="mt-4 rounded-2xl border border-black/10 bg-white/70 p-4">
             <div className="text-sm font-semibold">Photo received</div>
             <div className="mt-1 text-xs opacity-70">
-              Stored in your schema so Act II can maintain character consistency.
+              Saved for your story so your hero stays recognizable from page to page.
             </div>
 
             <div className="mt-3 flex items-start gap-3">
               <img
                 src={uploaded.dataUrl}
-                alt="Uploaded preview"
+                alt="Uploaded photo preview"
                 className="h-24 w-24 rounded-2xl object-cover border border-black/10"
               />
               <div className="text-sm">
