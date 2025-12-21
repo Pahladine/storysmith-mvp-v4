@@ -89,17 +89,79 @@ function buildDesignSchema(settings: any): string {
 }
 
 function extractResponseText(resp: any): string {
+  // Some SDKs provide resp.output_text, but raw Responses API may not.
   if (typeof resp?.output_text === "string" && resp.output_text.trim()) return resp.output_text.trim();
 
   const out: string[] = [];
-  for (const item of resp?.output ?? []) {
-    if (item?.type !== "message") continue;
-    for (const c of item?.content ?? []) {
-      if (c?.type === "output_text" && typeof c?.text === "string") out.push(c.text);
+  const output = resp?.output;
+
+  if (Array.isArray(output)) {
+    for (const item of output) {
+      if (!item) continue;
+
+      // Case A: item is a message with content parts
+      if (item?.type === "message") {
+        const content = item?.content;
+
+        if (Array.isArray(content)) {
+          for (const c of content) {
+            if (!c) continue;
+
+            // Typical text content parts
+            if ((c?.type === "output_text" || c?.type === "text") && typeof c?.text === "string" && c.text.trim()) {
+              out.push(c.text);
+              continue;
+            }
+
+            // JSON content parts
+            if ((c?.type === "output_json" || c?.type === "json") && c?.json && typeof c.json === "object") {
+              out.push(JSON.stringify(c.json));
+              continue;
+            }
+
+            // Refusal content parts
+            if (c?.type === "refusal" && typeof c?.refusal === "string" && c.refusal.trim()) {
+              out.push(c.refusal);
+              continue;
+            }
+          }
+        } else if (typeof content === "string" && content.trim()) {
+          out.push(content);
+        }
+
+        continue;
+      }
+
+      // Case B: item itself is a text-ish object
+      if ((item?.type === "output_text" || item?.type === "text") && typeof item?.text === "string" && item.text.trim()) {
+        out.push(item.text);
+        continue;
+      }
+
+      // Case C: item itself contains JSON
+      if ((item?.type === "output_json" || item?.type === "json") && item?.json && typeof item.json === "object") {
+        out.push(JSON.stringify(item.json));
+        continue;
+      }
     }
   }
+
   return out.join("\n").trim();
 }
+
+function modelDisallowsTemperature(model: string): boolean {
+  const m = String(model || "").toLowerCase().trim();
+  // Conservative allowlist/heuristic: reasoning/thinking model families often reject temperature.
+  // Add patterns as needed, but keep narrow.
+  return (
+    m.includes("o1") ||
+    m.includes("o3") ||
+    m.includes("gpt-5") ||
+    m.includes("reasoning") ||
+    m.includes("thinking")
+  );
+}
+
 
 async function openaiJson<T>(args: {
   model: string;
@@ -127,6 +189,12 @@ async function openaiJson<T>(args: {
     },
   };
 
+  if (modelDisallowsTemperature(args.model)) {
+
+    delete (body as any).temperature;
+
+  }
+
   const res = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
@@ -144,7 +212,16 @@ async function openaiJson<T>(args: {
   }
 
   const outputText = extractResponseText(envelope);
-  if (!outputText) throw new Error("OpenAI response missing output text.");
+  if (!outputText) {
+    const o = (envelope as any)?.output;
+    const outputTypes = Array.isArray(o) ? o.map((i: any) => i?.type).filter(Boolean) : [];
+    const contentTypes = Array.isArray(o)
+      ? o.flatMap((i: any) => Array.isArray(i?.content) ? i.content.map((c: any) => c?.type).filter(Boolean) : [])
+      : [];
+    throw new Error(
+      `OpenAI response missing output text. outputTypes=${outputTypes.join(",") || "(none)"} contentTypes=${contentTypes.join(",") || "(none)"}`
+    );
+  }
 
   try {
     return JSON.parse(outputText) as T;
@@ -159,6 +236,12 @@ async function openaiJson<T>(args: {
       max_output_tokens: args.maxOutputTokens,
       text: { format: { type: "json_object" } },
     };
+
+    if (modelDisallowsTemperature(args.model)) {
+
+      delete (body2 as any).temperature;
+
+    }
 
     const res2 = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -177,8 +260,16 @@ async function openaiJson<T>(args: {
     }
 
     const outputText2 = extractResponseText(envelope2);
-    if (!outputText2) throw new Error("OpenAI response missing output text (fallback).");
-    return JSON.parse(outputText2) as T;
+    if (!outputText2) {
+      const o2 = (envelope2 as any)?.output;
+      const outputTypes2 = Array.isArray(o2) ? o2.map((i: any) => i?.type).filter(Boolean) : [];
+      const contentTypes2 = Array.isArray(o2)
+        ? o2.flatMap((i: any) => Array.isArray(i?.content) ? i.content.map((c: any) => c?.type).filter(Boolean) : [])
+        : [];
+      throw new Error(
+        `OpenAI response missing output text (fallback). outputTypes=${outputTypes2.join(",") || "(none)"} contentTypes=${contentTypes2.join(",") || "(none)"}`
+      );
+    }return JSON.parse(outputText2) as T;
   }
 }
 
@@ -318,7 +409,8 @@ async function openaiRegenerate(
   sceneId: string,
   instructions: string
 ): Promise<StoryScene> {
-  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+    const primaryModel = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+  const fallbackModel = process.env.OPENAI_MODEL_FALLBACK?.trim() || "gpt-4o-mini";
   const temperature =
     process.env.OPENAI_TEMPERATURE ? Number(process.env.OPENAI_TEMPERATURE) :
     process.env.OLLAMA_TEMPERATURE ? Number(process.env.OLLAMA_TEMPERATURE) :
@@ -347,8 +439,11 @@ async function openaiRegenerate(
     },
   };
 
-  const data = await openaiJson<{ scene: StoryScene }>({
-    model,
+    let data: { scene: StoryScene };
+
+  try {
+    data = await openaiJson<{ scene: StoryScene }>({
+      model: primaryModel,
     temperature: Number.isFinite(temperature) ? temperature : 0.7,
     maxOutputTokens: 1400,
     schemaName: "regenerated_scene",
@@ -357,9 +452,31 @@ async function openaiRegenerate(
       { role: "system", content: SYSTEM },
       { role: "user", content: user },
     ],
-  });
+    });
+  } catch (err: any) {
+    const msg = String(err?.message || "");
+    const shouldFallback =
+      primaryModel !== fallbackModel &&
+      (
+        msg.includes("OpenAI response missing output text") ||
+        msg.includes("outputTypes=reasoning") ||
+        msg.includes("Unsupported parameter: 'temperature'")
+      );
 
-  const scene = (data as any)?.scene ?? {};
+    if (!shouldFallback) throw err;
+
+    data = await openaiJson<{ scene: StoryScene }>({
+      model: fallbackModel,
+    temperature: Number.isFinite(temperature) ? temperature : 0.7,
+    maxOutputTokens: 1400,
+    schemaName: "regenerated_scene",
+    schema,
+    input: [
+      { role: "system", content: SYSTEM },
+      { role: "user", content: user },
+    ],
+    });
+  }const scene = (data as any)?.scene ?? {};
   return {
     id: String(scene?.id ?? sceneId),
     index: Number.isFinite(Number(scene?.index)) ? Number(scene.index) : 1,
@@ -423,3 +540,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     });
   }
 }
+
+
+
+
+

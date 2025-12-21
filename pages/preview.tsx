@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
@@ -70,9 +70,16 @@ type Theme = 'day' | 'night';
 
 const PreviewPage: React.FC = () => {
   const router = useRouter();
-  const { state } = useStoryState();
+  const story = useStoryState() as any;
+const state = story.state;
+const setStoryState =
+  story.setStoryState ||
+  story.setState ||
+  story.setValue ||
+  null;
   
-  const { hero, scenes } = state;
+  const { hero } = state;
+  const scenes = (state?.scenes ?? []) as StoryScene[];
 
   // Local state for active scene and theme
   const initialSceneId = scenes.length > 0 ? scenes[0].id : null;
@@ -84,7 +91,8 @@ const [reviewMode, setReviewMode] = useState(false);
 const [inspectorOpen, setInspectorOpen] = useState(false);
 const [toast, setToast] = useState<string | null>(null);
 
-const copyToClipboard = async (text: string, label: string) => {
+
+  const [regenBusySceneId, setRegenBusySceneId] = useState<string | null>(null);const copyToClipboard = async (text: string, label: string) => {
   try {
     const payload = String(text ?? "");
     if (!payload.trim()) {
@@ -114,6 +122,76 @@ const copyToClipboard = async (text: string, label: string) => {
     setToast("Copy failed.");
     window.setTimeout(() => setToast(null), 1400);
   }
+};const [regenBusy, setRegenBusy] = useState<Record<string, boolean>>({});
+
+const regenerateScene = async (scene: StoryScene) => {
+  const sceneId = String((scene as any)?.id ?? "");
+  if (!sceneId) return;
+  setRegenBusySceneId(sceneId);
+  setRegenBusy((prev) => ({ ...(prev || {}), [sceneId]: true }));
+
+  try {
+    const res = await fetch("/api/regenerate-scene", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // Send a superset payload so the API can pick what it needs.
+      body: JSON.stringify({
+        state,
+        sceneId,
+        sceneIndex: (scene as any)?.index,
+        scene,
+      }),
+    });
+
+    let data: any = null;
+    try { data = await res.json(); } catch {}
+
+    if (!res.ok) {
+      const msg =
+        (data?.error ? String(data.error) : (data?.message ? String(data.message) : `Request failed (${res.status})`)) +
+        (data?.reqId ? ` [ref: ${data.reqId}]` : "");
+      throw new Error(msg);
+    }
+
+    const nextScenes = Array.isArray(data?.scenes) ? data.scenes : null;
+    const updatedScene = (data?.scene ?? data?.updatedScene ?? null) as any;
+
+    if (nextScenes && nextScenes.length) {
+      if (typeof setStoryState === "function") {
+        setStoryState((prev: any) => ({ ...(prev || {}), scenes: nextScenes }));
+      } else {
+        setToast("Scene regenerated. Refresh to see updates (state setter not available).");
+      }
+    } else if (updatedScene && typeof updatedScene === "object") {
+      if (typeof setStoryState === "function") {
+        setStoryState((prev: any) => {
+          const prevScenes = Array.isArray(prev?.scenes) ? prev.scenes : [];
+          const patched = prevScenes.map((s: any) => {
+            if (String(s?.id) !== sceneId) return s;
+            // Preserve id/index unless API explicitly returns them.
+            return {
+              ...s,
+              ...updatedScene,
+              id: s?.id ?? updatedScene?.id,
+              index: s?.index ?? updatedScene?.index,
+            };
+          });
+          return { ...(prev || {}), scenes: patched };
+        });
+      } else {
+        setToast("Scene regenerated. Refresh to see updates (state setter not available).");
+      }
+    } else {
+      setToast("Scene regenerated, but response shape was unexpected. Refresh if needed.");
+    }
+
+    setToast(`Regenerated Chapter ${(scene as any)?.index ?? ""}`.trim());
+  } catch (e: any) {
+    setToast(e?.message || "Failed to regenerate scene");
+    console.error("regenerate-scene failed:", e);
+  } finally {
+    setRegenBusy((prev) => ({ ...(prev || {}), [sceneId]: false }));
+  }
 };
 // 1. Redirect if prerequisites are missing
   useEffect(() => {
@@ -128,7 +206,7 @@ const copyToClipboard = async (text: string, label: string) => {
   
   // Derived state
   const totalPages = scenes.length;
-  const activeScene = scenes.find(s => s.id === activeSceneId) || scenes[0];
+  const activeScene = scenes.find((s: StoryScene) => s.id === activeSceneId) || scenes[0];
   const activeIndex = activeScene ? activeScene.index - 1 : 0;
   const isFirstPage = activeIndex === 0;
   const isLastPage = activeIndex === totalPages - 1;
@@ -356,6 +434,33 @@ const copyToClipboard = async (text: string, label: string) => {
             Loading story, or the story hasn't been fully generated yet. Redirecting you to the builder...
           </p>
         </div>
+      {toast ? (
+
+      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50">
+
+        <div
+
+          className={
+
+            "px-4 py-2 rounded-full text-xs font-semibold shadow-lg border " +
+
+            (theme === "night"
+
+              ? "bg-slate-950/90 text-slate-200 border-slate-800"
+
+              : "bg-white text-stone-800 border-stone-200")
+
+          }
+
+        >
+
+          {toast}
+
+        </div>
+
+      </div>
+
+    ) : null}
       </Layout>
     );
   }
@@ -400,7 +505,7 @@ const copyToClipboard = async (text: string, label: string) => {
                 {/* Center Title Block */}
                 <div className="text-center px-4">
                     <h1 className="text-lg md:text-xl font-bold font-serif tracking-tight mb-1">
-                        Now reading: {childName}’s Adventure
+                        Now reading: {childName}â€™s Adventure
                     </h1>
                     <p className={`text-xs md:text-sm font-medium ${theme === 'night' ? 'text-slate-500' : 'text-stone-500'}`}>
                         Tap the circles below to jump chapters, or use arrows to turn pages.
@@ -464,16 +569,44 @@ const copyToClipboard = async (text: string, label: string) => {
       {scenes.map((scene) => (
         <div key={scene.id}>
           <StoryPageView scene={scene} isScreenView={true} theme={theme} />
-          <div className="mt-3 flex items-center justify-end">
-            <button
+          <div className="mt-3 flex items-center justify-end gap-2">
+  <button
+    type="button"
+    className="text-xs font-semibold px-3 py-2 rounded-full border transition-all"
+    onClick={() => copyToClipboard(scene.illustrationPrompt || "", "Chapter prompt")}
+    title="Copy illustration prompt"
+  >
+    Copy Prompt
+  </button>
+<button
               type="button"
               className="text-xs font-semibold px-3 py-2 rounded-full border transition-all"
-              onClick={() => copyToClipboard(scene.illustrationPrompt || "", "Chapter prompt")}
-              title="Copy illustration prompt"
+              onClick={() => regenerateScene(scene)}
+              disabled={regenBusySceneId === scene.id}
+              title="Regenerate this chapter"
             >
-              Copy prompt
+              {regenBusySceneId === scene.id ? "Regenerating..." : "Regenerate Chapter"}
             </button>
-          </div>
+
+  <button
+    type="button"
+    className="text-xs font-semibold px-3 py-2 rounded-full border transition-all"
+    onClick={() => copyToClipboard(scene.text || "", `Chapter ${scene.index} text`)}
+    title="Copy chapter text"
+  >
+    Copy Text
+  </button>
+
+  <button
+    type="button"
+    className="text-xs font-semibold px-3 py-2 rounded-full border transition-all disabled:opacity-60"
+    disabled={!!regenBusy[String(scene.id)]}
+    onClick={() => regenerateScene(scene)}
+    title="Regenerate this chapter"
+  >
+    {regenBusy[String(scene.id)] ? "Regenerating..." : "Regenerate"}
+  </button>
+</div>
         </div>
       ))}
     </div>
@@ -526,8 +659,8 @@ const copyToClipboard = async (text: string, label: string) => {
           Key constraints
         </div>
         <div className={`mt-3 text-sm space-y-1 ${theme === "night" ? "text-slate-300" : "text-stone-800"}`}>
-          <div><span className="opacity-70">Hero:</span> {hero.childName || "—"}</div>
-          <div><span className="opacity-70">Reader:</span> {hero.readerName || "—"}</div>
+          <div><span className="opacity-70">Hero:</span> {hero.childName || "â€”"}</div>
+          <div><span className="opacity-70">Reader:</span> {hero.readerName || "â€”"}</div>
           <div><span className="opacity-70">Chapters:</span> {scenes.length}</div>
         </div>
       </div>
@@ -544,11 +677,7 @@ const copyToClipboard = async (text: string, label: string) => {
       </div>
     </div>
 
-    {toast ? (
-      <div className={`mt-4 text-xs font-semibold ${theme === "night" ? "text-slate-400" : "text-stone-600"}`}>
-        {toast}
-      </div>
-    ) : null}
+    
   </section>
 ) : null}
 
@@ -637,8 +766,40 @@ const copyToClipboard = async (text: string, label: string) => {
         </div>
         
       </div>
+    {toast ? (
+
+      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50">
+
+        <div
+
+          className={
+
+            "px-4 py-2 rounded-full text-xs font-semibold shadow-lg border " +
+
+            (theme === "night"
+
+              ? "bg-slate-950/90 text-slate-200 border-slate-800"
+
+              : "bg-white text-stone-800 border-stone-200")
+
+          }
+
+        >
+
+          {toast}
+
+        </div>
+
+      </div>
+
+    ) : null}
     </Layout>
-  );
+);
+
 };
 
 export default PreviewPage;
+
+
+
+
