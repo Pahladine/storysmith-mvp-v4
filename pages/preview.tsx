@@ -1,10 +1,10 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { useStoryState } from '../lib/state/StoryContext';
 import { StoryScene } from '../lib/models/types';
-import { ArrowLeft, BookOpen, Printer, Sun, Moon, Download, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { ArrowLeft, BookOpen, Printer, Sun, Moon, Download, ChevronLeft, ChevronRight, RefreshCw, Copy } from 'lucide-react';
 import { buildSessionFromStoryState } from '../lib/session/exportSession';
 
 /**
@@ -79,7 +79,43 @@ const PreviewPage: React.FC = () => {
   const [activeSceneId, setActiveSceneId] = useState<string | null>(initialSceneId);
   const [theme, setTheme] = useState<Theme>('day');
 
-  // 1. Redirect if prerequisites are missing
+  
+const [reviewMode, setReviewMode] = useState(false);
+const [inspectorOpen, setInspectorOpen] = useState(false);
+const [toast, setToast] = useState<string | null>(null);
+
+const copyToClipboard = async (text: string, label: string) => {
+  try {
+    const payload = String(text ?? "");
+    if (!payload.trim()) {
+      setToast("Nothing to copy.");
+      window.setTimeout(() => setToast(null), 1200);
+      return;
+    }
+
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(payload);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = payload;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+
+    setToast(`${label} copied.`);
+    window.setTimeout(() => setToast(null), 1200);
+  } catch (e) {
+    console.error("Copy failed:", e);
+    setToast("Copy failed.");
+    window.setTimeout(() => setToast(null), 1400);
+  }
+};
+// 1. Redirect if prerequisites are missing
   useEffect(() => {
     if (!hero.childName || scenes.length === 0) {
       router.replace('/build');
@@ -372,7 +408,33 @@ const PreviewPage: React.FC = () => {
                 </div>
                 
                 {/* Visual Spacer (Right) - Matches toggle width approx ~80px */}
-                <div className="w-[80px]"></div> 
+                <div className="flex items-center justify-end gap-2 w-[200px]">
+  <button
+    type="button"
+    onClick={() => setReviewMode(v => !v)}
+    className={`px-3 py-2 rounded-full text-xs font-semibold border transition-all ${
+      reviewMode
+        ? (theme === 'night' ? 'bg-indigo-900 text-indigo-200 border-indigo-800' : 'bg-orange-100 text-orange-800 border-orange-200')
+        : (theme === 'night' ? 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800' : 'bg-white text-stone-500 border-stone-200 hover:bg-stone-50')
+    }`}
+    title="Toggle review mode (show all pages)"
+  >
+    {reviewMode ? 'Review: ON' : 'Review'}
+  </button>
+
+  <button
+    type="button"
+    onClick={() => setInspectorOpen(v => !v)}
+    className={`px-3 py-2 rounded-full text-xs font-semibold border transition-all ${
+      inspectorOpen
+        ? (theme === 'night' ? 'bg-slate-800 text-slate-200 border-slate-700' : 'bg-stone-100 text-stone-800 border-stone-200')
+        : (theme === 'night' ? 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800' : 'bg-white text-stone-500 border-stone-200 hover:bg-stone-50')
+    }`}
+    title="Toggle inspector"
+  >
+    {inspectorOpen ? 'Inspector: ON' : 'Inspector'}
+  </button>
+</div> 
             </header>
 
             {/* NAV PILLS (Scene selectors) */}
@@ -396,7 +458,28 @@ const PreviewPage: React.FC = () => {
             </div>
 
             {/* MAIN READER CARD */}
-            <main className="w-full max-w-3xl mb-10 relative z-10">
+            {reviewMode ? (
+  <main className="w-full max-w-3xl mb-10 relative z-10">
+    <div className="space-y-10">
+      {scenes.map((scene) => (
+        <div key={scene.id}>
+          <StoryPageView scene={scene} isScreenView={true} theme={theme} />
+          <div className="mt-3 flex items-center justify-end">
+            <button
+              type="button"
+              className="text-xs font-semibold px-3 py-2 rounded-full border transition-all"
+              onClick={() => copyToClipboard(scene.illustrationPrompt || "", "Chapter prompt")}
+              title="Copy illustration prompt"
+            >
+              Copy prompt
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  </main>
+) : (
+<main className="w-full max-w-3xl mb-10 relative z-10">
                 {activeScene && (
                     <StoryPageView 
                         scene={activeScene} 
@@ -405,9 +488,72 @@ const PreviewPage: React.FC = () => {
                     />
                 )}
             </main>
+)}
             
             {/* FOOTER ACTIONS - Compact Layout */}
-            <footer className="w-full max-w-4xl flex flex-col gap-8 items-center pb-12">
+            {inspectorOpen ? (
+  <section className={`w-full max-w-4xl mb-10 rounded-2xl border p-5 md:p-6 transition-all ${
+    theme === "night" ? "bg-slate-900/60 border-slate-800" : "bg-white/70 border-stone-200 shadow-sm"
+  }`}>
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <h2 className={`text-sm font-bold uppercase tracking-wider ${
+          theme === "night" ? "text-slate-300" : "text-stone-700"
+        }`}>
+          Inspector - Story Inputs
+        </h2>
+        <p className={`mt-1 text-xs ${
+          theme === "night" ? "text-slate-500" : "text-stone-500"
+        }`}>
+          Quick visibility to evaluate writing + illustration prompts.
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => copyToClipboard(JSON.stringify(buildSessionFromStoryState(state), null, 2), "Session JSON")}
+        >
+          <Copy className="h-4 w-4 mr-2" /> Copy Session JSON
+        </Button>
+      </div>
+    </div>
+
+    <div className="mt-5 grid gap-4 md:grid-cols-2">
+      <div className={`rounded-xl border p-4 ${theme === "night" ? "border-slate-800 bg-slate-950/40" : "border-stone-200 bg-stone-50/60"}`}>
+        <div className={`text-xs font-semibold uppercase tracking-wider ${theme === "night" ? "text-slate-400" : "text-stone-500"}`}>
+          Key constraints
+        </div>
+        <div className={`mt-3 text-sm space-y-1 ${theme === "night" ? "text-slate-300" : "text-stone-800"}`}>
+          <div><span className="opacity-70">Hero:</span> {hero.childName || "—"}</div>
+          <div><span className="opacity-70">Reader:</span> {hero.readerName || "—"}</div>
+          <div><span className="opacity-70">Chapters:</span> {scenes.length}</div>
+        </div>
+      </div>
+
+      <div className={`rounded-xl border p-4 ${theme === "night" ? "border-slate-800 bg-slate-950/40" : "border-stone-200 bg-stone-50/60"}`}>
+        <div className={`text-xs font-semibold uppercase tracking-wider ${theme === "night" ? "text-slate-400" : "text-stone-500"}`}>
+          Session JSON (preview)
+        </div>
+        <pre className={`mt-3 text-[11px] leading-relaxed overflow-auto max-h-[260px] rounded-lg p-3 border ${
+          theme === "night" ? "bg-slate-950 border-slate-800 text-slate-300" : "bg-white border-stone-200 text-stone-700"
+        }`}>
+{JSON.stringify(buildSessionFromStoryState(state), null, 2)}
+        </pre>
+      </div>
+    </div>
+
+    {toast ? (
+      <div className={`mt-4 text-xs font-semibold ${theme === "night" ? "text-slate-400" : "text-stone-600"}`}>
+        {toast}
+      </div>
+    ) : null}
+  </section>
+) : null}
+
+
+<footer className="w-full max-w-4xl flex flex-col gap-8 items-center pb-12">
                 
                 {/* 1. Primary Navigation (Prev/Next) */}
                 <div className="flex items-center gap-4 w-full max-w-md">
