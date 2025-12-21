@@ -21,6 +21,10 @@ export function ChatWizard<TState>(props: Props<TState>) {
   const [stepId, setStepId] = useState<string>(script.initialStepId);
   const [messages, setMessages] = useState<WizardMessage[]>([]);
   const [completed, setCompleted] = useState<string[]>([]);
+  
+  const hasStamp = (needle: string) =>
+    completed.some((id) => String(id).toLowerCase().includes(needle));
+
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [extraOpen, setExtraOpen] = useState(false);
   const [extraText, setExtraText] = useState("");
@@ -313,12 +317,12 @@ useEffect(() => {
                 <div className="text-xs uppercase tracking-wide opacity-60">What happens next</div>
                 <div className="mt-1 opacity-80">
                   {step.kind === "choice"
-                    ? "Pick one option below â€” Iâ€™ll stamp your Park Pass and weâ€™ll continue."
+                    ? "Pick one option below - I'll stamp your Park Pass and we'll continue."
                     : step.kind === "text"
                     ? "Type your answer and press Enter (or click Continue)."
                     : step.kind === "upload"
-                    ? "Upload a photo â€” youâ€™ll see an â€œAddedâ€ badge and preview. Then press Enter or Continue."
-                    : "Click Continue when youâ€™re ready."}
+                    ? "Upload a photo - you'll see an \"Added\" badge and preview. Then press Enter or Continue."
+                    : "Click Continue when you're ready."}
                 </div>
               </div>
 
@@ -350,7 +354,7 @@ useEffect(() => {
                             ))}
                           </ul>
                         ) : (
-                          <div className="opacity-80">A short phrase is perfect. You can skip if itÃ¢â‚¬â„¢s optional.</div>
+                          <div className="opacity-80">A short phrase is perfect. You can skip if it's optional.</div>
                         )}
                       </>
                     ) : null}
@@ -488,7 +492,7 @@ useEffect(() => {
                 className="text-xs underline opacity-70 hover:opacity-100"
                 onClick={() => setSchemaOpen((v) => !v)}
               >
-                {schemaOpen ? "Hide details" : "Show details"}
+                {schemaOpen ? "Hide pass details" : "Show pass details"}
               </button>
             </div>
 
@@ -507,9 +511,62 @@ useEffect(() => {
             <div className="mt-1 text-xs opacity-70">Updates as you make choices.</div>
 
             {schemaOpen ? (
-              <pre className="mt-3 max-h-72 overflow-auto rounded-2xl border border-black/10 bg-white p-3 text-[11px] font-mono opacity-80 whitespace-pre-wrap">
+              <div className="mt-3 grid grid-cols-1 gap-3">
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div className="rounded-2xl border border-black/10 bg-white p-4">
+      <div className="text-[11px] uppercase tracking-wide opacity-60">Hero</div>
+      <div className="mt-1 text-base font-semibold">
+        {String((((state as any).childName || "") as string).trim() || "-")}
+      </div>
+    </div>
+
+    <div className="rounded-2xl border border-black/10 bg-white p-4">
+      <div className="text-[11px] uppercase tracking-wide opacity-60">Companion</div>
+      <div className="mt-1 text-base font-semibold">
+        {String((((state as any).companionName || "") as string).trim() || "-")}
+      </div>
+    </div>
+
+    <div className="rounded-2xl border border-black/10 bg-white p-4">
+      <div className="text-[11px] uppercase tracking-wide opacity-60">Photo</div>
+      <div className="mt-1 text-base font-semibold">
+        {((state as any).heroPhotoDataUrl ? "Added" : "-")}
+      </div>
+    </div>
+  </div>
+
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div className="rounded-2xl border border-black/10 bg-white p-4">
+      <div className="text-[11px] uppercase tracking-wide opacity-60">Vibe</div>
+      <div className="mt-1 text-base font-semibold">
+        {hasStamp("vibe") ? String((state as any).vibe ?? "-") : "-"}
+      </div>
+    </div>
+
+    <div className="rounded-2xl border border-black/10 bg-white p-4">
+      <div className="text-[11px] uppercase tracking-wide opacity-60">Place</div>
+      <div className="mt-1 text-base font-semibold">
+        {hasStamp("place") ? String((state as any).place ?? "-") : "-"}
+      </div>
+    </div>
+
+    <div className="rounded-2xl border border-black/10 bg-white p-4">
+      <div className="text-[11px] uppercase tracking-wide opacity-60">Length</div>
+      <div className="mt-1 text-base font-semibold">
+        {hasStamp("length") ? String((state as any).length ?? "-") : "-"}
+      </div>
+    </div>
+  </div>
+
+  <details className="rounded-2xl border border-black/10 bg-white p-4">
+    <summary className="cursor-pointer text-xs font-semibold opacity-70">
+      Advanced (raw JSON)
+    </summary>
+    <pre className="mt-3 max-h-72 overflow-auto rounded-2xl border border-black/10 bg-white p-3 text-[11px] font-mono opacity-80 whitespace-pre-wrap">
 {JSON.stringify(state, null, 2)}
-              </pre>
+    </pre>
+  </details>
+</div>
             ) : null}
 
             <div className="mt-4 space-y-3">
@@ -583,7 +640,7 @@ useEffect(() => {
                     Edit
                   </button>
                 </div>
-                <div className="mt-1 text-base font-semibold">{String((state as any).vibe ?? "-")}</div>
+                <div className="mt-1 text-base font-semibold">{hasStamp("vibe") ? String((state as any).vibe ?? "-") : "-"}</div>
               </div>
 
               <div className="rounded-2xl border border-black/10 bg-white p-4">
@@ -598,7 +655,7 @@ useEffect(() => {
                     Edit
                   </button>
                 </div>
-                <div className="mt-1 text-base font-semibold">{String((state as any).place ?? "-")}</div>
+                <div className="mt-1 text-base font-semibold">{hasStamp("place") ? String((state as any).place ?? "-") : "-"}</div>
               </div>
 
               <div className="rounded-2xl border border-black/10 bg-white p-4">
@@ -613,7 +670,7 @@ useEffect(() => {
                     Edit
                   </button>
                 </div>
-                <div className="mt-1 text-base font-semibold">{String((state as any).length ?? "-")}</div>
+                <div className="mt-1 text-base font-semibold">{hasStamp("length") ? String((state as any).length ?? "-") : "-"}</div>
               </div>
 
               <div className="pt-2 text-xs opacity-60">
