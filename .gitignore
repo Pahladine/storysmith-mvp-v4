@@ -1,4 +1,4 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+﻿# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
 /node_modules
@@ -65,3 +65,18 @@ patch_*.ps1
 Old Prompts/
 
 _handoff/
+
+# --- StorySmith local scratch artifacts (DO NOT COMMIT) ---
+# PowerShell patch scripts (local-only unless explicitly promoted)
+Patch-*.ps1
+
+# Local backups / scratch copies (keep locally, do not commit)
+*.BROKEN_*
+*.pre_*
+*.backup_*
+
+# Targeted TSX backup artifacts observed in this repo
+components/wizard/ChatWizard.tsx.*
+pages/start.tsx.*
+# --- End StorySmith local scratch artifacts ---
+
