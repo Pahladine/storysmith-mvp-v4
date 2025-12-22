@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { useRouter } from "next/router";
 import { Layout } from "../components/layout/Layout";
 import { ChatWizard } from "../components/wizard/ChatWizard";
@@ -11,7 +11,14 @@ import { useStoryState } from "../lib/state/StoryContext";
  */
 export default function StartPage() {
   const router = useRouter();
-  const { setHero, setReader, setSettings, resetStory } = useStoryState();
+  const uiParam = (() => {
+    const v = router.query.ui;
+    if (typeof v === "string") return v;
+    if (Array.isArray(v)) return v[0];
+    return undefined;
+  })();
+  const uiMode: "default" | "immersive" = uiParam === "immersive" ? "immersive" : "default";
+const { setHero, setReader, setSettings, resetStory } = useStoryState();
   const initial: Act1State = {
     childName: "",
     readerName: "",
@@ -75,6 +82,7 @@ export default function StartPage() {
 
           router.push("/build");
         }}
+        uiMode={uiMode}
       />
     </Layout>
   );
