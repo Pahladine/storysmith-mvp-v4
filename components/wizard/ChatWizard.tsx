@@ -2707,7 +2707,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-            <div className="text-sm opacity-70">Ride Mode: one moment at a time. Transcript is optional.</div>
+            <div className="text-sm opacity-70"><span className={(isImmersive ? "hidden" : "")}>Ride Mode: one moment at a time. Transcript is optional.</span></div>
 
 
 
@@ -8194,6 +8194,7 @@ function TextStep<TState>(props: {
 
 
 }
+
 
 
 
