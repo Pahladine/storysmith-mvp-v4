@@ -2852,6 +2852,15 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
                 Now boarding...</div>
+{isImmersive && (
+  <div data-ss-host-anchor className="mt-3 flex items-center gap-3">
+    <div className="h-10 w-10 shrink-0 rounded-full bg-black/10 flex items-center justify-center text-xs font-semibold">SS</div>
+    <div className="min-w-0">
+      <div className="text-[10px] uppercase tracking-wide opacity-60">Your Host</div>
+      <div className="text-sm font-semibold leading-tight">The Sculptor of Souls</div>
+    </div>
+  </div>
+)}
 
 
 
