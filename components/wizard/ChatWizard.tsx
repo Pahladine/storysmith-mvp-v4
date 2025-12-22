@@ -2761,7 +2761,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-              {transcriptOpen ? "Hide transcript" : "Show transcript"}
+              <span className={(isImmersive ? "hidden" : "")}>{transcriptOpen ? "Hide transcript" : "Show transcript"}</span>
 
 
 
@@ -8194,6 +8194,7 @@ function TextStep<TState>(props: {
 
 
 }
+
 
 
 
