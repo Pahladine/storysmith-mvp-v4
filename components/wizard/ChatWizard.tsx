@@ -2563,7 +2563,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-              {script.persona.title ? <div className="mt-1 text-sm opacity-80">{script.persona.title}</div> : null}
+              {(!isImmersive && script.persona.title) ? <div className="mt-1 text-sm opacity-80">{script.persona.title}</div> : null}
 
 
 
@@ -8203,6 +8203,7 @@ function TextStep<TState>(props: {
 
 
 }
+
 
 
 
