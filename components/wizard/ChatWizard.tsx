@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 
 
 
@@ -2392,7 +2392,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-          <div className="flex items-center justify-between gap-3">
+          <div className={"flex items-center justify-between gap-3" + (isImmersive ? " hidden" : "")}>
 
 
 
@@ -2401,7 +2401,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-            <div className="text-xs font-semibold tracking-wide uppercase opacity-70">Ride progress</div>
+            <div className={"text-xs font-semibold tracking-wide uppercase opacity-70" + (isImmersive ? " hidden" : "")}>Ride progress</div>
 
 
 
@@ -2410,7 +2410,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-            <div className="text-xs opacity-70">{progressPct}%</div>
+            <div className={"text-xs opacity-70" + (isImmersive ? " hidden" : "")}>{progressPct}%</div>
 
 
 
@@ -2437,7 +2437,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-            <div className="h-2 rounded-full bg-indigo-300" style={{ width: `${progressPct}%` }} />
+            <div className={"h-2 rounded-full bg-indigo-300" + (isImmersive ? " hidden" : "")} style={{ width: `${progressPct}%` }} />
 
 
 
@@ -2608,7 +2608,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-              <div className="text-sm opacity-80">
+              <div className={"text-sm opacity-80" + (isImmersive ? " hidden" : "")}>
 
 
 
@@ -2644,7 +2644,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-                <div className="h-full bg-black/30" style={{ width: `${progressPct}%` }} />
+                <div className={"h-full bg-black/30" + (isImmersive ? " hidden" : "")} style={{ width: `${progressPct}%` }} />
 
 
 
@@ -2662,7 +2662,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-              <div className="mt-1 text-xs opacity-60">{progressPct}%</div>
+              <div className={"mt-1 text-xs opacity-60" + (isImmersive ? " hidden" : "")}>{progressPct}%</div>
 
 
 
@@ -8194,6 +8194,10 @@ function TextStep<TState>(props: {
 
 
 }
+
+
+
+
 
 
 
