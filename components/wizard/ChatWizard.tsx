@@ -2842,7 +2842,8 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-              <div className="mb-3 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold tracking-wide text-indigo-700">
+                            <div data-ss-stage-header className="flex flex-wrap items-start justify-between gap-3">
+<div className="mb-1 inline-flex shrink-0 items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold tracking-wide text-indigo-700">
 
 
 
@@ -2853,7 +2854,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
                 Now boarding...</div>
 {isImmersive && (
-  <div data-ss-host-anchor className="mt-3 flex items-center gap-3">
+  <div data-ss-host-anchor className="mb-1 flex items-center gap-3 shrink-0">
     <div className="h-10 w-10 shrink-0 rounded-full bg-black/10 flex items-center justify-center text-xs font-semibold">SS</div>
     <div className="min-w-0">
       <div className="text-[10px] uppercase tracking-wide opacity-60">Your Host</div>
@@ -2861,6 +2862,8 @@ export function ChatWizard<TState>(props: Props<TState>) {
     </div>
   </div>
 )}
+              </div>
+
 
 
 
@@ -8209,3 +8212,4 @@ function TextStep<TState>(props: {
 
 
 }
+
