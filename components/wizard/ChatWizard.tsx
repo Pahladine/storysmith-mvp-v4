@@ -2968,7 +2968,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-              <div className="mt-3 rounded-2xl border border-black/10 bg-white/70 p-4 text-sm" aria-live="polite">
+              <div className="mt-3 rounded-2xl border border-black/10 bg-white/70 p-4 text-sm" aria-live="polite" data-ss-next-hint-box style={isImmersive ? { display: "none" } : undefined}>
 
 
 
@@ -3424,7 +3424,13 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-            <div className="mt-4 rounded-3xl border border-black/10 bg-white/70 p-5 shadow-sm">
+            {step.kind === "say" && isImmersive ? (
+              <div className="mt-2 max-w-4xl mx-auto flex justify-end" data-ss-immersive-say-continue>
+                <Button onClick={handleSayContinue}>Continue</Button>
+              </div>
+            ) : null}
+
+            <div className="mt-4 rounded-3xl border border-black/10 bg-white/70 p-5 shadow-sm" style={(step.kind === "say" && isImmersive) ? { display: "none" } : undefined}>
 
 
 
@@ -8203,118 +8209,3 @@ function TextStep<TState>(props: {
 
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
