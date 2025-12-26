@@ -2963,6 +2963,13 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
               <div className="mt-3 text-sm opacity-60">You can change choices later.</div>
+</div>
+{step.kind === "say" && isImmersive ? (
+  <div className="mt-4 flex justify-end" data-ss-stage-continue>
+    <Button onClick={handleSayContinue}>Continue</Button>
+  </div>
+) : null}
+<div>
 
 
 
@@ -3426,12 +3433,6 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-
-            {step.kind === "say" && isImmersive ? (
-              <div className="mt-2 max-w-4xl mx-auto flex justify-end" data-ss-immersive-say-continue>
-                <Button onClick={handleSayContinue}>Continue</Button>
-              </div>
-            ) : null}
 
             <div className="mt-4 rounded-3xl border border-black/10 bg-white/70 p-5 shadow-sm" style={(step.kind === "say" && isImmersive) ? { display: "none" } : undefined}>
 
@@ -8212,4 +8213,5 @@ function TextStep<TState>(props: {
 
 
 }
+
 
