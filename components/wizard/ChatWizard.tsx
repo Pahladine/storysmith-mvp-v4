@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 
 
@@ -2716,6 +2716,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
+            {!isImmersive && (
             <button
 
 
@@ -2771,6 +2772,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
             </button>
+            )}
 
 
 
@@ -2965,7 +2967,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
               <div className="mt-3 text-sm opacity-60">You can change choices later.</div>
 </div>
 {step.kind === "say" && isImmersive ? (
-  <div className="mt-4 flex justify-end" data-ss-stage-continue>
+  <div className="mt-3 max-w-4xl mx-auto flex justify-end" data-ss-stage-continue>
     <Button onClick={handleSayContinue}>Continue</Button>
   </div>
 ) : null}
