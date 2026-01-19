@@ -341,6 +341,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
   const hostFullRef = useRef<string>("");
+  const stageSurfaceRef = useRef<HTMLDivElement | null>(null);
 
 
 
@@ -1330,6 +1331,29 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
+  // [SS UX] Keep stage aligned: ensure host/options are visible without manual scroll,
+  // and ensure Enter-to-continue works without requiring a click focus first.
+  useEffect(() => {
+    // Focus a stable, non-input element so global key handlers behave consistently
+    const el = stageSurfaceRef.current;
+    if (el) {
+      try { (el as any).focus({ preventScroll: true }); } catch { try { el.focus(); } catch {} }
+    }
+
+    // Scroll stage header into view (top) on every step transition
+    window.requestAnimationFrame(() => {
+      const header = document.querySelector("[data-ss-stage-header]") as HTMLElement | null;
+      if (header) {
+        try {
+          header.scrollIntoView({ block: "start", behavior: "smooth" });
+        } catch {
+          header.scrollIntoView(true);
+        }
+      } else {
+        try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { window.scrollTo(0, 0); }
+      }
+    });
+  }, [stepId]);
 // [SS UX] Host typewriter (all host lines)
 
 
@@ -1960,7 +1984,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-          <div className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-6 shadow-sm shadow-indigo-100/50">
+          <div ref={stageSurfaceRef} tabIndex={-1} data-ss-stage-surface className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-6 shadow-sm shadow-indigo-100/50">
 
 
 
@@ -2835,7 +2859,7 @@ export function ChatWizard<TState>(props: Props<TState>) {
 
 
 
-            <div className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-6 shadow-sm shadow-indigo-100/50">
+            <div ref={stageSurfaceRef} tabIndex={-1} data-ss-stage-surface className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-6 shadow-sm shadow-indigo-100/50">
 
 
 
